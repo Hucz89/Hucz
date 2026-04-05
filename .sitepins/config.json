@@ -1,5 +1,5 @@
 {
-  "content": "src",
+  "content": "src/content",
   "media": "public/images",
   "public": "public",
   "configs": [],
