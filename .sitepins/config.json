@@ -1,10 +1,8 @@
 {
-  "content": "src/content",
-  "media": "public",
+  "content": "src",
+  "media": "public/images",
   "public": "public",
-  "configs": [
-    "tsconfig.json"
-  ],
+  "configs": [],
   "custom-commit": false,
   "arrangement": []
 }
