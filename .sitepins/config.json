@@ -2,7 +2,9 @@
   "content": "src/content",
   "media": "public",
   "public": "public",
-  "configs": [],
+  "configs": [
+    "tsconfig.json"
+  ],
   "custom-commit": false,
   "arrangement": []
 }
