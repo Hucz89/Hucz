@@ -1,0 +1,536 @@
+---
+export const prerender = false;
+import { supabase } from '../../../lib/supabase';
+
+const { id } = Astro.params;
+
+const { data: osVersion } = await supabase
+  .from('os_versions')
+  .select('*')
+  .eq('id', id)
+  .single();
+
+if (!osVersion) return Astro.redirect('/admin');
+
+const { data: assetFiles } = await supabase
+  .from('asset_files')
+  .select(`
+    *,
+    assets(name, version_string, categories(name, slug), os_version_id)
+  `)
+  .eq('assets.os_version_id', id);
+
+const files = assetFiles?.filter(f => f.assets) ?? [];
+const currentPathName = osVersion.path_name ?? osVersion.slug;
+const publicBase = 'https://pub-d3c379719a184b6cafe0a0c007991f0f.r2.dev';
+
+// Find mismatched files server-side
+const mismatchedFiles = files.filter(f => {
+  const key = f.storage_url.replace(`${publicBase}/`, '');
+  return !key.startsWith(`${currentPathName}/`);
+});
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Migrate {osVersion.name} — Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lucida Grande', Tahoma, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #f0f0f0;
+    }
+    .admin-header {
+      background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%);
+      border-bottom: 1px solid #5a7a96;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      height: 44px;
+      gap: 16px;
+    }
+    .site-logo {
+      font-family: Georgia, serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2a38;
+      text-decoration: none;
+    }
+    .site-logo span { color: #2c5f8a; }
+    .admin-badge {
+      font-size: 11px;
+      background: #2c5f8a;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 8px;
+    }
+    .layout {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+    .page-title {
+      font-family: Georgia, serif;
+      font-size: 22px;
+      font-weight: bold;
+      border-bottom: 2px solid #a0b8cc;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .card-header {
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      border-bottom: 1px solid #9ab5c8;
+      padding: 8px 14px;
+      font-weight: 500;
+      font-size: 13px;
+      color: #1a2a38;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-body { padding: 14px; }
+    label {
+      display: block;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 3px;
+      margin-top: 10px;
+    }
+    label:first-child { margin-top: 0; }
+    input[type=text] {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      background: white;
+      outline: none;
+    }
+    input[type=text]:focus { border-color: #2c5f8a; }
+    .btn {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid #9ab5c8;
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      color: #1a2a38;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      font-weight: 500;
+      margin-top: 12px;
+    }
+    .btn-primary {
+      background: linear-gradient(180deg, #3a78b0 0%, #2c5f8a 100%);
+      color: white;
+      border-color: #1a4a70;
+    }
+    .btn-danger {
+      background: linear-gradient(180deg, #e07060 0%, #c05040 100%);
+      color: white;
+      border-color: #a03020;
+    }
+    .btn-warn {
+      background: linear-gradient(180deg, #e8a020 0%, #c07810 100%);
+      color: white;
+      border-color: #a06000;
+    }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end; }
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .preview-table th {
+      text-align: left;
+      padding: 5px 8px;
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      color: #1a2a38;
+      font-weight: 500;
+      border: 1px solid #9ab5c8;
+    }
+    .preview-table td {
+      padding: 5px 8px;
+      border: 1px solid #ddd;
+      vertical-align: middle;
+    }
+    .preview-table tr:nth-child(even) td { background: #f8f8f8; }
+    .path-old { color: #c05040; font-family: monospace; font-size: 10px; word-break: break-all; }
+    .path-new { color: #2a6a2a; font-family: monospace; font-size: 10px; word-break: break-all; }
+    .arrow { color: #a0b8cc; text-align: center; }
+    .status-msg {
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-top: 8px;
+      display: none;
+    }
+    .status-ok { background: #e8f5e8; color: #2a6a2a; border: 1px solid #b0d8b0; }
+    .status-err { background: #fde8e8; color: #8a2a2a; border: 1px solid #f0b0b0; }
+    .status-warn { background: #fef3da; color: #7a5000; border: 1px solid #e8c870; }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 14px 0;
+      width: calc(100% - 28px);
+      display: none;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #2c5f8a;
+      border-radius: 4px;
+      transition: width 0.2s;
+      width: 0%;
+    }
+    .progress-label {
+      font-size: 11px;
+      color: #666;
+      margin: 4px 14px 10px;
+      display: none;
+    }
+    .file-row-status {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+    .status-pending { background: #f0f0f0; color: #666; }
+    .status-done { background: #e8f5e8; color: #2a6a2a; }
+    .status-error { background: #fde8e8; color: #8a2a2a; }
+    .status-mismatch { background: #fef3da; color: #7a5000; }
+    .empty { padding: 20px; color: #666; font-style: italic; font-size: 12px; }
+    .scan-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: #fef3da;
+      border-bottom: 1px solid #e8c870;
+      font-size: 12px;
+      color: #7a5000;
+    }
+    .scan-summary.clean {
+      background: #e8f5e8;
+      border-color: #b0d8b0;
+      color: #2a6a2a;
+    }
+    .scan-count {
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<header class="admin-header">
+  <a href="/" class="site-logo">OS<span>Archive</span></a>
+  <span class="admin-badge">Admin</span>
+  <a href="/admin" style="margin-left:auto;font-size:12px;color:#1a2a38;text-decoration:none;">← Back to admin</a>
+</header>
+
+<div class="layout">
+  <div class="page-title">Migrate: {osVersion.name}</div>
+
+  <!-- Scan results -->
+  <div class="card">
+    <div class="card-header">
+      Path scan
+      <span style="font-size:11px;font-weight:400;color:#666;">Current path name: <strong>{currentPathName}</strong></span>
+    </div>
+
+    {mismatchedFiles.length > 0 ? (
+      <>
+        <div class="scan-summary">
+          <span class="scan-count">{mismatchedFiles.length} file{mismatchedFiles.length !== 1 ? 's' : ''} not on current path</span>
+          <span>— these files are stored under a different path and need to be migrated to <strong>{currentPathName}</strong></span>
+        </div>
+        <div style="padding:0;">
+          <table class="preview-table" id="scan-table">
+            <thead>
+              <tr>
+                <th style="width:46%;">Current location</th>
+                <th style="width:8%;" class="arrow">→</th>
+                <th style="width:38%;">New location</th>
+                <th style="width:60px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mismatchedFiles.map((f, i) => {
+                const oldKey = f.storage_url.replace(`${publicBase}/`, '');
+                const oldSegments = oldKey.split('/');
+                const newKey = [currentPathName, ...oldSegments.slice(1)].join('/');
+                return (
+                  <tr id={`scan-row-${i}`}>
+                    <td class="path-old">{oldKey}</td>
+                    <td class="arrow">→</td>
+                    <td class="path-new">{newKey}</td>
+                    <td><span class="file-row-status status-mismatch" id={`scan-status-${i}`}>Mismatch</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div class="progress-bar" id="scan-progress-bar">
+          <div class="progress-fill" id="scan-progress-fill"></div>
+        </div>
+        <div class="progress-label" id="scan-progress-label"></div>
+        <div style="padding:14px;border-top:1px solid #ddd;display:flex;gap:8px;">
+          <button class="btn btn-warn" id="fix-btn">Fix {mismatchedFiles.length} mismatched file{mismatchedFiles.length !== 1 ? 's' : ''}</button>
+        </div>
+        <div id="scan-status" class="status-msg" style="margin:0 14px 14px;"></div>
+      </>
+    ) : (
+      <div class="scan-summary clean">
+        <span class="scan-count">All {files.length} files are on the correct path.</span>
+        <span>No migration needed.</span>
+      </div>
+    )}
+  </div>
+
+  <!-- Path rename migration -->
+  <div class="card">
+    <div class="card-header">Rename path</div>
+    <div class="card-body">
+      <div class="two-col">
+        <div>
+          <label>Current path name</label>
+          <input type="text" id="old-path" value={currentPathName} readonly style="background:#f8f8f8;color:#666;" />
+        </div>
+        <div>
+          <label>New path name</label>
+          <input type="text" id="new-path" placeholder="e.g. MacOS_10.4-Tiger" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="preview-btn" style="margin-top:12px;">Preview rename</button>
+      <div id="status" class="status-msg"></div>
+    </div>
+  </div>
+
+  <div class="card" id="preview-card" style="display:none;">
+    <div class="card-header">
+      <span id="preview-title">Preview</span>
+      <span style="font-size:11px;font-weight:400;color:#666;" id="preview-count"></span>
+    </div>
+    <div style="padding:0;">
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-label" id="progress-label"></div>
+      <table class="preview-table" id="preview-table">
+        <thead>
+          <tr>
+            <th style="width:44%;">Current path</th>
+            <th style="width:8%;" class="arrow">→</th>
+            <th style="width:44%;">New path</th>
+            <th style="width:60px;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="preview-tbody"></tbody>
+      </table>
+      {files.length === 0 && <div class="empty">No files found for this OS version.</div>}
+    </div>
+    <div style="padding:14px;border-top:1px solid #ddd;display:flex;gap:8px;">
+      <button class="btn btn-danger" id="migrate-btn">Migrate all files</button>
+      <button class="btn" id="cancel-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ osVersionId: osVersion.id, currentPathName, files, mismatchedFiles, SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL, SUPABASE_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL }}>
+
+  const publicBase = 'https://pub-d3c379719a184b6cafe0a0c007991f0f.r2.dev';
+
+  function showStatus(elId, msg, ok) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.className = 'status-msg ' + (ok ? 'status-ok' : 'status-err');
+    el.style.display = 'block';
+  }
+
+  function getOldKey(url) {
+    return url.replace(`${publicBase}/`, '');
+  }
+
+  async function moveFile(oldKey, newKey, fileId, newUrl) {
+    const r2Res = await fetch(R2_WORKER_URL, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldKey, newKey })
+    });
+    if (!r2Res.ok) throw new Error('R2 move failed');
+
+    const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/asset_files?id=eq.${fileId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ storage_url: newUrl })
+    });
+    if (!dbRes.ok) throw new Error('DB update failed');
+  }
+
+  // Fix mismatched files
+  const fixBtn = document.getElementById('fix-btn');
+  if (fixBtn) {
+    fixBtn.addEventListener('click', async () => {
+      if (!confirm(`Fix ${mismatchedFiles.length} mismatched files by moving them to "${currentPathName}"?`)) return;
+
+      fixBtn.disabled = true;
+      const progressBar = document.getElementById('scan-progress-bar');
+      const progressFill = document.getElementById('scan-progress-fill');
+      const progressLabel = document.getElementById('scan-progress-label');
+      progressBar.style.display = 'block';
+      progressLabel.style.display = 'block';
+
+      let done = 0, errors = 0;
+
+      for (let i = 0; i < mismatchedFiles.length; i++) {
+        const f = mismatchedFiles[i];
+        const statusEl = document.getElementById(`scan-status-${i}`);
+        progressLabel.textContent = `Fixing ${i + 1} of ${mismatchedFiles.length}…`;
+
+        const oldKey = getOldKey(f.storage_url);
+        const oldSegments = oldKey.split('/');
+        const newKey = [currentPathName, ...oldSegments.slice(1)].join('/');
+        const newUrl = `${publicBase}/${newKey}`;
+
+        try {
+          await moveFile(oldKey, newKey, f.id, newUrl);
+          statusEl.textContent = 'Fixed';
+          statusEl.className = 'file-row-status status-done';
+          done++;
+        } catch (e) {
+          statusEl.textContent = 'Error';
+          statusEl.className = 'file-row-status status-error';
+          errors++;
+        }
+
+        progressFill.style.width = `${Math.round(((i + 1) / mismatchedFiles.length) * 100)}%`;
+      }
+
+      progressLabel.textContent = `Done — ${done} fixed, ${errors} errors.`;
+      showStatus('scan-status', `Fixed ${done} file${done !== 1 ? 's' : ''}${errors > 0 ? `, ${errors} error(s)` : ''}.`, errors === 0);
+      fixBtn.disabled = false;
+    });
+  }
+
+  // Rename path migration
+  let previewRows = [];
+
+  document.getElementById('preview-btn').addEventListener('click', () => {
+    const newPath = document.getElementById('new-path').value.trim();
+    if (!newPath) return showStatus('status', 'Enter a new path name.', false);
+    if (newPath === currentPathName) return showStatus('status', 'New path is the same as current.', false);
+
+    previewRows = files.map(f => {
+      const oldKey = getOldKey(f.storage_url);
+      const newKey = oldKey.replace(currentPathName, newPath);
+      return { fileId: f.id, oldKey, newKey, oldUrl: f.storage_url, newUrl: `${publicBase}/${newKey}` };
+    });
+
+    const tbody = document.getElementById('preview-tbody');
+    tbody.innerHTML = '';
+    previewRows.forEach((row, i) => {
+      const tr = document.createElement('tr');
+      tr.id = `row-${i}`;
+      tr.innerHTML = `
+        <td class="path-old">${row.oldKey}</td>
+        <td class="arrow">→</td>
+        <td class="path-new">${row.newKey}</td>
+        <td><span class="file-row-status status-pending" id="status-${i}">Pending</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('preview-count').textContent = `${previewRows.length} files`;
+    document.getElementById('preview-card').style.display = 'block';
+    document.getElementById('preview-title').textContent = `Preview — ${newPath}`;
+    document.getElementById('status').style.display = 'none';
+  });
+
+  document.getElementById('cancel-btn').addEventListener('click', () => {
+    document.getElementById('preview-card').style.display = 'none';
+    document.getElementById('new-path').value = '';
+  });
+
+  document.getElementById('migrate-btn').addEventListener('click', async () => {
+    const newPath = document.getElementById('new-path').value.trim();
+    if (!newPath || previewRows.length === 0) return;
+    if (!confirm(`Migrate ${previewRows.length} files from "${currentPathName}" to "${newPath}"? This cannot be undone.`)) return;
+
+    const migrateBtn = document.getElementById('migrate-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+    migrateBtn.disabled = true;
+    cancelBtn.disabled = true;
+
+    const progressBar = document.getElementById('progress-bar');
+    const progressFill = document.getElementById('progress-fill');
+    const progressLabel = document.getElementById('progress-label');
+    progressBar.style.display = 'block';
+    progressLabel.style.display = 'block';
+
+    let done = 0, errors = 0;
+
+    for (let i = 0; i < previewRows.length; i++) {
+      const row = previewRows[i];
+      const statusEl = document.getElementById(`status-${i}`);
+      progressLabel.textContent = `Migrating ${i + 1} of ${previewRows.length}…`;
+
+      try {
+        await moveFile(row.oldKey, row.newKey, row.fileId, row.newUrl);
+        statusEl.textContent = 'Done';
+        statusEl.className = 'file-row-status status-done';
+        done++;
+      } catch (e) {
+        statusEl.textContent = 'Error';
+        statusEl.className = 'file-row-status status-error';
+        errors++;
+      }
+
+      progressFill.style.width = `${Math.round(((i + 1) / previewRows.length) * 100)}%`;
+    }
+
+    progressLabel.textContent = `Done — ${done} migrated, ${errors} errors.`;
+
+    if (errors === 0) {
+      await fetch(`${SUPABASE_URL}/rest/v1/os_versions?id=eq.${osVersionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ path_name: newPath })
+      });
+      showStatus('status', `Migration complete — ${done} files moved to "${newPath}". Path name updated.`, true);
+    } else {
+      showStatus('status', `Migration finished with ${errors} error(s). Check the table above.`, false);
+    }
+
+    migrateBtn.disabled = false;
+    cancelBtn.disabled = false;
+  });
+</script>
+
+</body>
+</html>

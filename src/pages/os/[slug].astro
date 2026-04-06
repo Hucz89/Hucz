@@ -55,6 +55,22 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
   if (versions.length > 0) acc[p.key] = { label: p.label, versions };
   return acc;
 }, {} as Record<string, { label: string, versions: any[] }>);
+
+function selectThumbnail(files: any[]) {
+  const pngFiles = files.filter(f => f.filetype === 'png' && f.pixel_size);
+  if (pngFiles.length === 0) return files[0] ?? null;
+  const above = pngFiles.filter(f => f.pixel_size >= 64).sort((a, b) => a.pixel_size - b.pixel_size);
+  const below = pngFiles.filter(f => f.pixel_size < 64).sort((a, b) => b.pixel_size - a.pixel_size);
+  return above[0] || below[0] || files[0];
+}
+
+function selectLightboxImage(files: any[]) {
+  const pngFiles = files.filter(f => f.filetype === 'png' && f.pixel_size);
+  if (pngFiles.length === 0) return files[0] ?? null;
+  const above512 = pngFiles.filter(f => f.pixel_size >= 512).sort((a, b) => a.pixel_size - b.pixel_size);
+  const below512 = pngFiles.filter(f => f.pixel_size < 512).sort((a, b) => b.pixel_size - a.pixel_size);
+  return above512[0] || below512[0] || files[0];
+}
 ---
 
 <!DOCTYPE html>
@@ -231,14 +247,48 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
     }
     .asset-table tr:nth-child(even) td { background: #f8f8f8; }
     .asset-table tr:hover td { background: #e8f0f8; }
-    .thumb {
-      width: 32px;
-      height: 32px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #f0f0f0;
-      object-fit: contain;
+    .thumb-cell {
+      width: 72px;
+      min-width: 72px;
+      max-width: 72px;
+      padding: 4px 4px !important;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .thumb-wrap {
+      width: 64px;
+      height: 64px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
       cursor: pointer;
+      margin: 0 auto;
+    }
+    .thumb-wrap::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 20px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.95));
+      pointer-events: none;
+    }
+    .thumb-wrap.no-fade::after { display: none; }
+    .asset-table tr:nth-child(even) .thumb-wrap::after {
+      background: linear-gradient(to bottom, transparent, rgba(248,248,248,0.95));
+    }
+    .asset-table tr:hover .thumb-wrap::after {
+      background: linear-gradient(to bottom, transparent, rgba(232,240,248,0.95));
+    }
+    .thumb-img {
+      display: block;
+      max-width: 64px;
+      height: auto;
+      cursor: pointer;
+      flex-shrink: 0;
     }
     .asset-name { color: #2c5f8a; cursor: pointer; font-weight: 500; }
     .asset-name:hover { text-decoration: underline; }
@@ -311,7 +361,7 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
       background: white;
       border-radius: 8px;
       padding: 20px;
-      max-width: 480px;
+      max-width: 560px;
       width: 90%;
       position: relative;
     }
@@ -327,13 +377,19 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
       line-height: 1;
     }
     .lightbox-close:hover { color: #1a1a1a; }
-    .lightbox-img {
-      width: 128px;
-      height: 128px;
-      object-fit: contain;
-      display: block;
+    .lightbox-img-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin: 0 auto 14px;
-      image-rendering: pixelated;
+      min-height: 64px;
+    }
+    .lightbox-img {
+      display: block;
+      max-width: 512px;
+      max-height: 512px;
+      width: auto;
+      height: auto;
     }
     .lightbox-name {
       font-family: Georgia, serif;
@@ -434,7 +490,7 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
       <table class="asset-table" id="asset-table">
         <thead>
           <tr>
-            <th style="width:40px"></th>
+            <th class="thumb-cell"></th>
             <th>Name</th>
             <th>Category</th>
             <th>Formats</th>
@@ -448,20 +504,47 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
           {assets.map(asset => {
             const filetypes = [...new Set(asset.asset_files?.map((f: any) => f.filetype))];
             const sizes = [...new Set(asset.asset_files?.map((f: any) => f.pixel_size).filter(Boolean))].sort((a: number, b: number) => b - a);
-            const smallSizes = [16, 32, 48, 64, 128];
-            const thumbnail = asset.asset_files?.find((f: any) => f.filetype === 'png' && smallSizes.includes(f.pixel_size)) || asset.asset_files?.[0];
             const labels = asset.asset_labels?.map((al: any) => al.labels) ?? [];
             const fieldValues = Object.fromEntries(
               asset.asset_field_values?.map((fv: any) => [fv.field_definitions?.field_key, fv.value]) ?? []
             );
 
+            const thumbnail = selectThumbnail(asset.asset_files ?? []);
+            const thumbNativeWidth = thumbnail?.pixel_width ?? thumbnail?.pixel_size ?? 0;
+            const thumbNativeHeight = thumbnail?.pixel_height ?? thumbnail?.pixel_size ?? 0;
+            const displayWidth = thumbNativeWidth > 0 ? Math.min(thumbNativeWidth, 64) : 64;
+            const displayHeight = thumbNativeWidth > 0 ? Math.round(thumbNativeHeight * (displayWidth / thumbNativeWidth)) : thumbNativeHeight;
+            const showNative = thumbNativeWidth > 0 && thumbNativeWidth < 64;
+            const applyFade = displayHeight > 64;
+
+            const lightboxFile = selectLightboxImage(asset.asset_files ?? []);
+
             return (
-              <tr data-category={asset.categories?.name?.toLowerCase().replace(/\s+/g, '-') ?? ''} data-name={asset.name.toLowerCase()} data-asset={JSON.stringify({ name: asset.name, category: asset.categories?.name, version: asset.version_string, files: asset.asset_files })}>
-                <td>
-                  {thumbnail
-                    ? <img class="thumb" src={thumbnail.storage_url} alt={asset.name} />
-                    : <div class="thumb"></div>
-                  }
+              <tr
+                data-category={asset.categories?.name?.toLowerCase().replace(/\s+/g, '-') ?? ''}
+                data-name={asset.name.toLowerCase()}
+                data-asset={JSON.stringify({
+                  name: asset.name,
+                  category: asset.categories?.name,
+                  version: asset.version_string,
+                  files: asset.asset_files,
+                  lightboxUrl: lightboxFile?.storage_url ?? '',
+                  lightboxSize: lightboxFile?.pixel_size ?? 0,
+                })}
+              >
+                <td class="thumb-cell">
+                  {thumbnail ? (
+                    <div class={`thumb-wrap${applyFade ? '' : ' no-fade'}`} style={`width:${showNative ? thumbNativeWidth : 64}px;`}>
+                      <img
+                        class="thumb-img"
+                        src={thumbnail.storage_url}
+                        alt={asset.name}
+                        style={`max-width:${displayWidth}px;`}
+                      />
+                    </div>
+                  ) : (
+                    <div style="width:64px;height:64px;"></div>
+                  )}
                 </td>
                 <td><span class="asset-name">{asset.name}</span></td>
                 <td>{asset.categories?.name ?? '—'}</td>
@@ -518,7 +601,9 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
 <div class="lightbox" id="lightbox">
   <div class="lightbox-inner">
     <button class="lightbox-close" id="lightbox-close">×</button>
-    <img class="lightbox-img" id="lightbox-img" src="" alt="" />
+    <div class="lightbox-img-wrap">
+      <img class="lightbox-img" id="lightbox-img" src="" alt="" />
+    </div>
     <div class="lightbox-name" id="lightbox-name"></div>
     <div class="lightbox-meta" id="lightbox-meta"></div>
     <div class="lightbox-files" id="lightbox-files"></div>
@@ -560,14 +645,12 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
     applyFilters();
   });
 
-  // Lightbox
   function openLightbox(row: HTMLElement) {
     const data = JSON.parse(row.dataset.asset ?? '{}');
     const files = data.files ?? [];
-    const thumb = files.find((f: any) => f.filetype === 'png') || files[0];
 
     const img = document.getElementById('lightbox-img') as HTMLImageElement;
-    img.src = thumb?.storage_url ?? '';
+    img.src = data.lightboxUrl ?? '';
     img.alt = data.name;
 
     document.getElementById('lightbox-name')!.textContent = data.name;
@@ -576,13 +659,13 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
     const fileList = document.getElementById('lightbox-files')!;
     fileList.innerHTML = '';
     files.forEach((f: any) => {
-      const row = document.createElement('div');
-      row.className = 'lightbox-file';
-      row.innerHTML = `
-        <span>${f.filetype.toUpperCase()}${f.pixel_size ? ` · ${f.pixel_size}px` : ''}</span>
-        <a class="lightbox-download" href="${f.storage_url}" download="${data.name}.${f.filetype}" target="_blank">Download</a>
+      const item = document.createElement('div');
+      item.className = 'lightbox-file';
+      item.innerHTML = `
+        <span class="lightbox-file-info">${f.filetype.toUpperCase()}${f.pixel_size ? ` · ${f.pixel_size}px` : ''}</span>
+        <a class="lightbox-download" href="${f.storage_url}" download target="_blank">Download</a>
       `;
-      fileList.appendChild(row);
+      fileList.appendChild(item);
     });
 
     lightbox.classList.add('open');
@@ -590,7 +673,7 @@ const sidebarGrouped = platforms.reduce((acc, p) => {
 
   rows.forEach(row => {
     const el = row as HTMLElement;
-    el.querySelector('.thumb')?.addEventListener('click', () => openLightbox(el));
+    el.querySelector('.thumb-wrap')?.addEventListener('click', () => openLightbox(el));
     el.querySelector('.asset-name')?.addEventListener('click', () => openLightbox(el));
   });
 

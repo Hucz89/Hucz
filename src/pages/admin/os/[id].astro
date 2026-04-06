@@ -39,16 +39,15 @@ const { data: fieldDefs } = await supabase
   .eq('os_version_id', id)
   .order('sort_order');
 
-// Category slug → R2 directory group mapping
 const categoryGroupMap: Record<string, string> = {
-  'application': 'applications',
-  'toolbar': 'ui/toolbar',
-  'ui-element': 'ui/elements',
-  'cursor': 'cursors',
-  'document': 'documents',
-  'folder': 'folders',
-  'sound': 'sounds',
-  'system': 'system',
+  'application': 'Applications',
+  'toolbar': 'UI/Toolbar',
+  'ui-element': 'UI/Elements',
+  'cursor': 'Cursors',
+  'document': 'Documents',
+  'folder': 'Folders',
+  'sound': 'Sounds',
+  'system': 'System',
 };
 ---
 
@@ -274,12 +273,6 @@ const categoryGroupMap: Record<string, string> = {
       margin-bottom: 8px;
     }
     .field-def-row input { margin-top: 0; }
-    .path-preview-label {
-      font-size: 11px;
-      color: #666;
-      margin-top: 8px;
-      margin-bottom: 4px;
-    }
   </style>
 </head>
 <body>
@@ -483,12 +476,11 @@ const categoryGroupMap: Record<string, string> = {
     });
   }
 
-  // Slugify asset name
   function slugify(str) {
-    return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const slug = str.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
   }
 
-  // Get image dimensions from a File object
   function getImageDimensions(file) {
     return new Promise((resolve) => {
       const noImageTypes = ['icns', 'aiff', 'wav', 'mp3'];
@@ -508,17 +500,10 @@ const categoryGroupMap: Record<string, string> = {
     });
   }
 
-  // Build dimension string from width/height
   function dimString(width, height) {
     if (!width || !height) return null;
     if (width === height) return `${width}`;
     return `${width}x${height}`;
-  }
-
-  // Build the full R2 path for a file
-  function slugify(str) {
-    const slug = str.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
   }
 
   function buildPath(file, assetName, categorySlug, versionString, dims) {
@@ -531,12 +516,11 @@ const categoryGroupMap: Record<string, string> = {
     return `${pathName}/${categoryGroup}/${assetSlug}/${version}/${filename}`;
   }
 
-  // File state
   const zone = document.getElementById('upload-zone');
   const fileInput = document.getElementById('file-input');
   const preview = document.getElementById('file-preview');
   let selectedFiles = [];
-  let fileMeta = []; // { file, dims, path }
+  let fileMeta = [];
 
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
@@ -551,7 +535,6 @@ const categoryGroupMap: Record<string, string> = {
     processFiles();
   });
 
-  // Re-compute paths when name/category/version changes
   document.getElementById('asset-name').addEventListener('input', refreshPaths);
   document.getElementById('asset-category').addEventListener('change', refreshPaths);
   document.getElementById('asset-version').addEventListener('input', refreshPaths);
@@ -571,12 +554,10 @@ const categoryGroupMap: Record<string, string> = {
     const categorySelect = document.getElementById('asset-category');
     const categorySlug = categorySelect.options[categorySelect.selectedIndex]?.dataset.slug || '';
     const versionString = document.getElementById('asset-version').value;
-
     fileMeta = fileMeta.map(m => ({
       ...m,
       path: buildPath(m.file, assetName, categorySlug, versionString, m.dims)
     }));
-
     renderPreview();
   }
 
@@ -614,24 +595,28 @@ const categoryGroupMap: Record<string, string> = {
       body: meta.file
     });
     if (!res.ok) return null;
-    const { url, extracted } = await res.json();
+    const { url, extracted, dimensions } = await res.json();
 
-    // Store the original file record
+    // Store the original file record with dimensions
     await sbPost('asset_files', {
       asset_id: assetId,
       filetype: ext,
-      pixel_size: null,
+      pixel_size: dimensions ? Math.max(dimensions.width, dimensions.height) : null,
+      pixel_width: dimensions?.width ?? null,
+      pixel_height: dimensions?.height ?? null,
       storage_url: url,
       file_bytes: meta.file.size
     });
 
-    // Store each extracted PNG as its own asset_file record
+    // Store each extracted PNG with its dimensions
     if (extracted && extracted.length > 0) {
       for (const e of extracted) {
         await sbPost('asset_files', {
           asset_id: assetId,
           filetype: 'png',
-          pixel_size: e.width === e.height ? e.width : null,
+          pixel_size: e.width && e.height ? Math.max(e.width, e.height) : null,
+          pixel_width: e.width ?? null,
+          pixel_height: e.height ?? null,
           storage_url: e.url,
           file_bytes: e.file_bytes
         });
@@ -641,7 +626,6 @@ const categoryGroupMap: Record<string, string> = {
     return url;
   }
 
-  // Add asset form
   document.getElementById('add-asset-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -685,7 +669,6 @@ const categoryGroupMap: Record<string, string> = {
     setTimeout(() => location.reload(), 1500);
   });
 
-  // Add custom field
   document.getElementById('add-field-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -707,7 +690,6 @@ const categoryGroupMap: Record<string, string> = {
     }
   });
 
-  // Delete field
   document.querySelectorAll('.delete-field').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Remove this column?')) return;
@@ -716,7 +698,6 @@ const categoryGroupMap: Record<string, string> = {
     });
   });
 
-  // Delete asset
   document.querySelectorAll('.delete-asset').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Delete this asset and all its files?')) return;

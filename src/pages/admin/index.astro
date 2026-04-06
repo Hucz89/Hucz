@@ -215,6 +215,7 @@ const { data: labels } = await supabase
               <div class="os-item-actions">
                 <a href={`/os/${os.slug}`} class="btn" style="margin-top:0;font-size:11px;padding:3px 8px;">View</a>
                 <a href={`/admin/os/${os.id}`} class="btn btn-primary" style="margin-top:0;font-size:11px;padding:3px 8px;">Edit</a>
+                <a href={`/admin/migrate/${os.id}`} class="btn" style="margin-top:0;font-size:11px;padding:3px 8px;">Migrate</a>
               </div>
             </li>
           ))}
