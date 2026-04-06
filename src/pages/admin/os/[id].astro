@@ -16,7 +16,7 @@ const { data: assets } = await supabase
   .from('assets')
   .select(`
     *,
-    categories(name),
+    categories(name, slug),
     asset_files(*),
     asset_labels(label_id, labels(name))
   `)
@@ -38,6 +38,18 @@ const { data: fieldDefs } = await supabase
   .select('*')
   .eq('os_version_id', id)
   .order('sort_order');
+
+// Category slug → R2 directory group mapping
+const categoryGroupMap: Record<string, string> = {
+  'application': 'applications',
+  'toolbar': 'ui/toolbar',
+  'ui-element': 'ui/elements',
+  'cursor': 'cursors',
+  'document': 'documents',
+  'folder': 'folders',
+  'sound': 'sounds',
+  'system': 'system',
+};
 ---
 
 <!DOCTYPE html>
@@ -220,21 +232,26 @@ const { data: fieldDefs } = await supabase
     .upload-zone:hover, .upload-zone.dragover { background: #e8f0f8; border-color: #2c5f8a; }
     .file-preview {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
       margin-top: 10px;
+      text-align: left;
     }
     .file-chip {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
       font-size: 11px;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 4px;
       background: #e8eef8;
       border: 1px solid #c0d0e4;
       color: #3a5a80;
+      gap: 12px;
     }
+    .file-chip-original { color: #888; font-style: italic; flex-shrink: 0; }
+    .file-chip-arrow { color: #a0b8cc; flex-shrink: 0; }
+    .file-chip-path { color: #2c5f8a; font-family: monospace; font-size: 10px; word-break: break-all; }
     .checkbox-group {
       display: flex;
       flex-wrap: wrap;
@@ -257,6 +274,12 @@ const { data: fieldDefs } = await supabase
       margin-bottom: 8px;
     }
     .field-def-row input { margin-top: 0; }
+    .path-preview-label {
+      font-size: 11px;
+      color: #666;
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -280,20 +303,20 @@ const { data: fieldDefs } = await supabase
         <div class="three-col">
           <div>
             <label>Asset name</label>
-            <input type="text" name="name" placeholder="Finder" required />
+            <input type="text" name="name" id="asset-name" placeholder="Finder" required />
           </div>
           <div>
             <label>Category</label>
-            <select name="category_id">
+            <select name="category_id" id="asset-category">
               <option value="">— none —</option>
               {categories?.map(cat => (
-                <option value={cat.id}>{cat.name}</option>
+                <option value={cat.id} data-slug={cat.slug}>{cat.name}</option>
               ))}
             </select>
           </div>
           <div>
             <label>Version string</label>
-            <input type="text" name="version_string" placeholder="10.4.3" />
+            <input type="text" name="version_string" id="asset-version" placeholder="10.4.3" />
           </div>
         </div>
 
@@ -319,9 +342,9 @@ const { data: fieldDefs } = await supabase
         </div>
 
         <label style="margin-top:14px;">Upload files</label>
-        <input type="file" id="file-input" multiple accept=".png,.icns,.tiff,.svg,.jpg" style="display:none;" />
+        <input type="file" id="file-input" multiple accept=".png,.icns,.tiff,.svg,.jpg,.aiff,.wav,.mp3" style="display:none;" />
         <label class="upload-zone" for="file-input" id="upload-zone">
-          <div id="upload-prompt">Click or drag files here (.png, .icns, .tiff, .svg)</div>
+          <div id="upload-prompt">Click or drag files here (.png, .icns, .tiff, .svg, .aiff)</div>
           <div class="file-preview" id="file-preview"></div>
         </label>
 
@@ -429,7 +452,7 @@ const { data: fieldDefs } = await supabase
 
 </div>
 
-<script define:vars={{ osVersionId: osVersion.id, SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL, SUPABASE_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL }}>
+<script define:vars={{ osVersionId: osVersion.id, osVersionSlug: osVersion.slug, SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL, SUPABASE_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL, categoryGroupMap: categoryGroupMap }}>
 
   function showStatus(id, msg, ok) {
     const el = document.getElementById(id);
@@ -460,11 +483,55 @@ const { data: fieldDefs } = await supabase
     });
   }
 
-  // File upload zone
+  // Slugify asset name
+  function slugify(str) {
+    return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  // Get image dimensions from a File object
+  function getImageDimensions(file) {
+    return new Promise((resolve) => {
+      const noImageTypes = ['icns', 'aiff', 'wav', 'mp3'];
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (noImageTypes.includes(ext)) return resolve({ width: null, height: null });
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => {
+        resolve({ width: null, height: null });
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+  }
+
+  // Build dimension string from width/height
+  function dimString(width, height) {
+    if (!width || !height) return null;
+    if (width === height) return `${width}`;
+    return `${width}x${height}`;
+  }
+
+  // Build the full R2 path for a file
+  function buildPath(file, assetName, categorySlug, versionString, dims) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const assetSlug = slugify(assetName || 'unknown');
+    const categoryGroup = categoryGroupMap[categorySlug] || 'uncategorized';
+    const version = slugify(versionString || 'unknown');
+    const dimStr = dims ? `_${dims}` : '';
+    const filename = `${assetSlug}${dimStr}.${ext}`;
+    return `${osVersionSlug}/${categoryGroup}/${assetSlug}/${version}/${filename}`;
+  }
+
+  // File state
   const zone = document.getElementById('upload-zone');
   const fileInput = document.getElementById('file-input');
   const preview = document.getElementById('file-preview');
   let selectedFiles = [];
+  let fileMeta = []; // { file, dims, path }
 
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
@@ -472,51 +539,99 @@ const { data: fieldDefs } = await supabase
     e.preventDefault();
     zone.classList.remove('dragover');
     selectedFiles = Array.from(e.dataTransfer.files);
-    updatePreview();
+    processFiles();
   });
   fileInput.addEventListener('change', () => {
-    console.log('files:', fileInput.files);
     selectedFiles = Array.from(fileInput.files);
-    updatePreview();
+    processFiles();
   });
 
-  function updatePreview() {
-    preview.innerHTML = '';
-    selectedFiles.forEach(f => {
-      const chip = document.createElement('div');
-      chip.className = 'file-chip';
-      chip.textContent = f.name;
-      preview.appendChild(chip);
-    });
-    document.getElementById('upload-prompt').style.display = selectedFiles.length ? 'none' : 'block';
+  // Re-compute paths when name/category/version changes
+  document.getElementById('asset-name').addEventListener('input', refreshPaths);
+  document.getElementById('asset-category').addEventListener('change', refreshPaths);
+  document.getElementById('asset-version').addEventListener('input', refreshPaths);
+
+  async function processFiles() {
+    fileMeta = [];
+    for (const file of selectedFiles) {
+      const { width, height } = await getImageDimensions(file);
+      const dims = dimString(width, height);
+      fileMeta.push({ file, width, height, dims });
+    }
+    refreshPaths();
   }
 
- async function uploadFile(file, assetId) {
-    const ext = file.name.split('.').pop().toLowerCase();
-    const path = `${osVersionId}/${assetId}/${file.name}`;
+  function refreshPaths() {
+    const assetName = document.getElementById('asset-name').value;
+    const categorySelect = document.getElementById('asset-category');
+    const categorySlug = categorySelect.options[categorySelect.selectedIndex]?.dataset.slug || '';
+    const versionString = document.getElementById('asset-version').value;
+
+    fileMeta = fileMeta.map(m => ({
+      ...m,
+      path: buildPath(m.file, assetName, categorySlug, versionString, m.dims)
+    }));
+
+    renderPreview();
+  }
+
+  function renderPreview() {
+    preview.innerHTML = '';
+    if (fileMeta.length === 0) {
+      document.getElementById('upload-prompt').style.display = 'block';
+      return;
+    }
+    document.getElementById('upload-prompt').style.display = 'none';
+    fileMeta.forEach(m => {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip';
+      chip.innerHTML = `
+        <span class="file-chip-original">${m.file.name}</span>
+        <span class="file-chip-arrow">→</span>
+        <span class="file-chip-path">${m.path}</span>
+      `;
+      preview.appendChild(chip);
+    });
+  }
+
+  async function uploadFile(meta, assetId) {
+    const ext = meta.file.name.split('.').pop().toLowerCase();
+    const isIcns = ext === 'icns';
+
     const res = await fetch(R2_WORKER_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': file.type || 'application/octet-stream',
-        'X-File-Path': path,
-        'X-File-Name': file.name
+        'Content-Type': meta.file.type || 'application/octet-stream',
+        'X-File-Path': meta.path,
+        'X-File-Name': meta.path.split('/').pop(),
+        'X-Unpack-Icns': isIcns ? 'true' : 'false'
       },
-      body: file
+      body: meta.file
     });
     if (!res.ok) return null;
-    const { url } = await res.json();
+    const { url, extracted } = await res.json();
 
-    let pixelSize = null;
-    const sizeMatch = file.name.match(/[_@x](\d+)/i);
-    if (sizeMatch) pixelSize = parseInt(sizeMatch[1]);
-
+    // Store the original file record
     await sbPost('asset_files', {
       asset_id: assetId,
       filetype: ext,
-      pixel_size: pixelSize,
+      pixel_size: null,
       storage_url: url,
-      file_bytes: file.size
+      file_bytes: meta.file.size
     });
+
+    // Store each extracted PNG as its own asset_file record
+    if (extracted && extracted.length > 0) {
+      for (const e of extracted) {
+        await sbPost('asset_files', {
+          asset_id: assetId,
+          filetype: 'png',
+          pixel_size: e.width === e.height ? e.width : null,
+          storage_url: e.url,
+          file_bytes: e.file_bytes
+        });
+      }
+    }
 
     return url;
   }
@@ -549,19 +664,20 @@ const { data: fieldDefs } = await supabase
       await sbPost('asset_labels', { asset_id: asset.id, label_id: labelId });
     }
 
-    if (selectedFiles.length > 0) {
-      showStatus('asset-status', `Uploading ${selectedFiles.length} file(s)…`, true);
-      for (const file of selectedFiles) {
-        await uploadFile(file, asset.id);
+    if (fileMeta.length > 0) {
+      showStatus('asset-status', `Uploading ${fileMeta.length} file(s)…`, true);
+      for (const meta of fileMeta) {
+        await uploadFile(meta, asset.id);
       }
     }
 
     showStatus('asset-status', 'Asset added!', true);
     form.reset();
     selectedFiles = [];
+    fileMeta = [];
     preview.innerHTML = '';
     document.getElementById('upload-prompt').style.display = 'block';
-    setTimeout(() => location.reload(), 10000);
+    setTimeout(() => location.reload(), 1500);
   });
 
   // Add custom field

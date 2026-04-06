@@ -35,6 +35,26 @@ const { data: categories } = await supabase
   .from('categories')
   .select('*')
   .order('name');
+
+const { data: allOsVersions } = await supabase
+  .from('os_versions')
+  .select('id, name, slug, platform')
+  .order('sort_order');
+
+const platforms = [
+  { key: 'macos', label: 'Mac OS X' },
+  { key: 'windows', label: 'Windows' },
+  { key: 'ios', label: 'iOS' },
+  { key: 'android', label: 'Android' },
+  { key: 'linux', label: 'Linux' },
+  { key: 'other', label: 'Other' },
+];
+
+const sidebarGrouped = platforms.reduce((acc, p) => {
+  const versions = allOsVersions?.filter(os => os.platform === p.key) ?? [];
+  if (versions.length > 0) acc[p.key] = { label: p.label, versions };
+  return acc;
+}, {} as Record<string, { label: string, versions: any[] }>);
 ---
 
 <!DOCTYPE html>
@@ -121,6 +141,10 @@ const { data: categories } = await supabase
       text-decoration: none;
     }
     .sidebar-link:hover { text-decoration: underline; }
+    .sidebar-link.active {
+      color: #1a1a1a;
+      font-weight: 500;
+    }
     .main-content { padding: 0 20px; }
     .breadcrumb {
       font-size: 11px;
@@ -214,6 +238,7 @@ const { data: categories } = await supabase
       border-radius: 4px;
       background: #f0f0f0;
       object-fit: contain;
+      cursor: pointer;
     }
     .asset-name { color: #2c5f8a; cursor: pointer; font-weight: 500; }
     .asset-name:hover { text-decoration: underline; }
@@ -272,6 +297,85 @@ const { data: categories } = await supabase
       color: #666;
       font-style: italic;
     }
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox-inner {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      max-width: 480px;
+      width: 90%;
+      position: relative;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      font-size: 20px;
+      cursor: pointer;
+      color: #666;
+      background: none;
+      border: none;
+      line-height: 1;
+    }
+    .lightbox-close:hover { color: #1a1a1a; }
+    .lightbox-img {
+      width: 128px;
+      height: 128px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 14px;
+      image-rendering: pixelated;
+    }
+    .lightbox-name {
+      font-family: Georgia, serif;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .lightbox-meta {
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    .lightbox-files {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lightbox-file {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: #f0f4f8;
+      border: 1px solid #d0d8e4;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .lightbox-file-info { color: #666; }
+    .lightbox-download {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid #9ab5c8;
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      color: #1a2a38;
+      text-decoration: none;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .lightbox-download:hover { background: linear-gradient(180deg, #c0d8ec 0%, #a4c2d4 100%); }
   </style>
 </head>
 <body>
@@ -291,12 +395,16 @@ const { data: categories } = await supabase
 
 <div class="layout">
   <div class="sidebar-left">
-    <div class="sidebar-label">Mac OS X</div>
-    <a class="sidebar-link" href="/os/macosx-10-4-tiger">10.4 Tiger</a>
-    <div class="sidebar-label">Windows</div>
-    <a class="sidebar-link" href="/os/windows-xp">Windows XP</a>
-    <div class="sidebar-label">Mobile</div>
-    <a class="sidebar-link" href="/os/iphone-os-1">iPhone OS 1</a>
+    {Object.values(sidebarGrouped).map(({ label, versions }) => (
+      <>
+        <div class="sidebar-label">{label}</div>
+        {versions.map(os => (
+          <a class={`sidebar-link${os.slug === osVersion.slug ? ' active' : ''}`} href={`/os/${os.slug}`}>
+            {os.name}
+          </a>
+        ))}
+      </>
+    ))}
   </div>
 
   <div class="main-content">
@@ -348,7 +456,7 @@ const { data: categories } = await supabase
             );
 
             return (
-              <tr data-category={asset.categories?.name?.toLowerCase().replace(/\s+/g, '-') ?? ''} data-name={asset.name.toLowerCase()}>
+              <tr data-category={asset.categories?.name?.toLowerCase().replace(/\s+/g, '-') ?? ''} data-name={asset.name.toLowerCase()} data-asset={JSON.stringify({ name: asset.name, category: asset.categories?.name, version: asset.version_string, files: asset.asset_files })}>
                 <td>
                   {thumbnail
                     ? <img class="thumb" src={thumbnail.storage_url} alt={asset.name} />
@@ -406,10 +514,23 @@ const { data: categories } = await supabase
   </div>
 </div>
 
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-inner">
+    <button class="lightbox-close" id="lightbox-close">×</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="" />
+    <div class="lightbox-name" id="lightbox-name"></div>
+    <div class="lightbox-meta" id="lightbox-meta"></div>
+    <div class="lightbox-files" id="lightbox-files"></div>
+  </div>
+</div>
+
 <script>
   const filterBtns = document.querySelectorAll('.filter-btn');
   const nameFilter = document.getElementById('name-filter') as HTMLInputElement;
   const rows = document.querySelectorAll('#asset-table tbody tr');
+  const lightbox = document.getElementById('lightbox')!;
+  const lightboxClose = document.getElementById('lightbox-close')!;
 
   let activeCategory = 'all';
   let nameQuery = '';
@@ -437,6 +558,45 @@ const { data: categories } = await supabase
   nameFilter?.addEventListener('input', () => {
     nameQuery = nameFilter.value.toLowerCase();
     applyFilters();
+  });
+
+  // Lightbox
+  function openLightbox(row: HTMLElement) {
+    const data = JSON.parse(row.dataset.asset ?? '{}');
+    const files = data.files ?? [];
+    const thumb = files.find((f: any) => f.filetype === 'png') || files[0];
+
+    const img = document.getElementById('lightbox-img') as HTMLImageElement;
+    img.src = thumb?.storage_url ?? '';
+    img.alt = data.name;
+
+    document.getElementById('lightbox-name')!.textContent = data.name;
+    document.getElementById('lightbox-meta')!.textContent = [data.category, data.version].filter(Boolean).join(' · ');
+
+    const fileList = document.getElementById('lightbox-files')!;
+    fileList.innerHTML = '';
+    files.forEach((f: any) => {
+      const row = document.createElement('div');
+      row.className = 'lightbox-file';
+      row.innerHTML = `
+        <span>${f.filetype.toUpperCase()}${f.pixel_size ? ` · ${f.pixel_size}px` : ''}</span>
+        <a class="lightbox-download" href="${f.storage_url}" download="${data.name}.${f.filetype}" target="_blank">Download</a>
+      `;
+      fileList.appendChild(row);
+    });
+
+    lightbox.classList.add('open');
+  }
+
+  rows.forEach(row => {
+    const el = row as HTMLElement;
+    el.querySelector('.thumb')?.addEventListener('click', () => openLightbox(el));
+    el.querySelector('.asset-name')?.addEventListener('click', () => openLightbox(el));
+  });
+
+  lightboxClose.addEventListener('click', () => lightbox.classList.remove('open'));
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) lightbox.classList.remove('open');
   });
 </script>
 
