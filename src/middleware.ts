@@ -10,10 +10,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const authHeader = context.request.headers.get('authorization');
 
-  if (authHeader) {
-    const encoded = authHeader.replace('Basic ', '');
-    const decoded = atob(encoded);
-    const [user, pass] = decoded.split(':');
+  if (authHeader && authHeader.startsWith('Basic ')) {
+    const encoded = authHeader.slice(6);
+    const decoded = Buffer.from(encoded, 'base64').toString('utf-8');
+    const colon = decoded.indexOf(':');
+    const user = decoded.slice(0, colon);
+    const pass = decoded.slice(colon + 1);
     if (user === ADMIN_USER && pass === ADMIN_PASS) {
       return next();
     }
