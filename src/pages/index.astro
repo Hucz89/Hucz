@@ -1,50 +1,271 @@
 ---
-import BaseHead from '../components/BaseHead.astro';
-import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
-import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
+export const prerender = false;
+import { supabase } from '../lib/supabase';
+
+const { data: osVersions } = await supabase
+  .from('os_versions')
+  .select(`
+    *,
+    assets(count)
+  `)
+  .order('sort_order');
+
+const platforms = [
+  { key: 'macos', label: 'Mac OS X' },
+  { key: 'windows', label: 'Windows' },
+  { key: 'ios', label: 'iOS' },
+  { key: 'android', label: 'Android' },
+  { key: 'linux', label: 'Linux' },
+  { key: 'other', label: 'Other' },
+];
+
+const grouped = platforms.reduce((acc, p) => {
+  const versions = osVersions?.filter(os => os.platform === p.key) ?? [];
+  if (versions.length > 0) acc[p.key] = { label: p.label, versions };
+  return acc;
+}, {} as Record<string, { label: string, versions: any[] }>);
 ---
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-	</head>
-	<body>
-		<Header />
-		<main>
-			<h1>🧑‍🚀 Hello, Astronaut!</h1>
-			<p>
-				Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This
-				template serves as a lightweight, minimally-styled starting point for anyone looking to build
-				a personal website, blog, or portfolio with Astro.
-			</p>
-			<p>
-				This template comes with a few integrations already configured in your
-				<code>astro.config.mjs</code> file. You can customize your setup with
-				<a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-				React, or Vue to your project.
-			</p>
-			<p>Here are a few ideas on how to get started with the template:</p>
-			<ul>
-				<li>Edit this page in <code>src/pages/index.astro</code></li>
-				<li>Edit the site header items in <code>src/components/Header.astro</code></li>
-				<li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-				<li>Check out the included blog posts in <code>src/content/blog/</code></li>
-				<li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-			</ul>
-			<p>
-				Have fun! If you get stuck, remember to <a href="https://docs.astro.build/"
-					>read the docs
-				</a> or <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-			</p>
-			<p>
-				Looking for a blog template with a bit more personality? Check out <a
-					href="https://github.com/Charca/astro-blog-template"
-					>astro-blog-template
-				</a> by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
-			</p>
-		</main>
-		<Footer />
-	</body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSArchive — Historical OS Icon & UI Asset Archive</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lucida Grande', Tahoma, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #f0f0f0;
+    }
+    .site-header {
+      background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%);
+      border-bottom: 1px solid #5a7a96;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      height: 44px;
+      gap: 16px;
+    }
+    .site-logo {
+      font-family: Georgia, serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2a38;
+      text-decoration: none;
+    }
+    .site-logo span { color: #2c5f8a; }
+    .header-search {
+      flex: 1;
+      max-width: 340px;
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid #7a9ab5;
+      border-radius: 12px;
+      padding: 0 10px;
+      height: 26px;
+      gap: 6px;
+    }
+    .header-search input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 12px;
+      width: 100%;
+      font-family: inherit;
+    }
+    .hero {
+      background: linear-gradient(180deg, #7a9ab5 0%, #5a7a96 100%);
+      padding: 48px 20px;
+      text-align: center;
+      border-bottom: 1px solid #4a6a86;
+    }
+    .hero-title {
+      font-family: Georgia, serif;
+      font-size: 36px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      margin-bottom: 8px;
+    }
+    .hero-title span { color: #c8e8f8; }
+    .hero-subtitle {
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 24px;
+    }
+    .hero-search {
+      display: flex;
+      align-items: center;
+      background: white;
+      border: 1px solid #7a9ab5;
+      border-radius: 20px;
+      padding: 0 16px;
+      height: 40px;
+      gap: 8px;
+      max-width: 500px;
+      margin: 0 auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .hero-search input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 14px;
+      width: 100%;
+      font-family: inherit;
+    }
+    .hero-search button {
+      background: #2c5f8a;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .hero-search button:hover { background: #1a4a70; }
+    .content {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 28px 16px;
+    }
+    .platform-section { margin-bottom: 32px; }
+    .platform-heading {
+      font-family: Georgia, serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2a38;
+      border-bottom: 2px solid #a0b8cc;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+    }
+    .os-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .os-card {
+      background: white;
+      border: 1px solid #d0d8e4;
+      border-radius: 6px;
+      padding: 14px;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      transition: border-color 0.1s, background 0.1s;
+    }
+    .os-card:hover {
+      border-color: #2c5f8a;
+      background: #f0f6fc;
+    }
+    .os-card-name {
+      font-family: Georgia, serif;
+      font-size: 14px;
+      font-weight: bold;
+      color: #1a2a38;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+    .os-card-meta {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .os-card-count {
+      font-size: 11px;
+      color: #2c5f8a;
+      font-weight: 500;
+    }
+    .os-card-screenshot {
+      width: 100%;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 3px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #a0b8cc, #7090a8);
+    }
+    .os-card-screenshot-placeholder {
+      width: 100%;
+      height: 80px;
+      border-radius: 3px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #c8d8e8, #a0b8cc);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+    .empty-state p { font-size: 14px; margin-bottom: 8px; }
+    .empty-state a { color: #2c5f8a; }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="/" class="site-logo">OS<span>Archive</span></a>
+  <div class="header-search">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="#1a2a38" stroke-width="1.5"/>
+      <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#1a2a38" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <form action="/search" method="get" style="width:100%">
+      <input type="text" name="q" placeholder="Search icons, UI assets, OS versions…" />
+    </form>
+  </div>
+  <a href="/admin" style="font-size:11px;color:#1a2a38;text-decoration:none;margin-left:auto;opacity:0.6;">Admin</a>
+</header>
+
+<div class="hero">
+  <h1 class="hero-title">OS<span>Archive</span></h1>
+  <p class="hero-subtitle">A historical archive of icons and UI assets from classic operating systems</p>
+  <form class="hero-search" action="/search" method="get">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="#999" stroke-width="1.5"/>
+      <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#999" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <input type="text" name="q" placeholder="Search for icons, UI elements, OS versions…" />
+    <button type="submit">Search</button>
+  </form>
+</div>
+
+<div class="content">
+  {Object.keys(grouped).length > 0 ? (
+    Object.values(grouped).map(({ label, versions }) => (
+      <div class="platform-section">
+        <h2 class="platform-heading">{label}</h2>
+        <div class="os-grid">
+          {versions.map(os => (
+            <a class="os-card" href={`/os/${os.slug}`}>
+              {os.screenshot_url
+                ? <img class="os-card-screenshot" src={os.screenshot_url} alt={os.name} />
+                : <div class="os-card-screenshot-placeholder"></div>
+              }
+              <div class="os-card-name">{os.name}</div>
+              {os.released_at && (
+                <div class="os-card-meta">
+                  {new Date(os.released_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}
+                </div>
+              )}
+              <div class="os-card-count">{os.assets?.[0]?.count ?? 0} assets</div>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))
+  ) : (
+    <div class="empty-state">
+      <p>No OS versions yet.</p>
+      <p><a href="/admin">Add one from the admin panel →</a></p>
+    </div>
+  )}
+</div>
+
+</body>
 </html>

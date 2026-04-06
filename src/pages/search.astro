@@ -1,0 +1,269 @@
+---
+export const prerender = false;
+import { supabase } from '../lib/supabase';
+
+const query = Astro.url.searchParams.get('q') ?? '';
+
+let assets: any[] = [];
+let osVersions: any[] = [];
+
+if (query.trim()) {
+  const { data: assetResults } = await supabase
+    .from('assets')
+    .select(`
+      *,
+      categories(name),
+      asset_files(*),
+      os_versions(name, slug)
+    `)
+    .textSearch('search_vector', query, { type: 'websearch' })
+    .limit(50);
+
+  const { data: osResults } = await supabase
+    .from('os_versions')
+    .select('*')
+    .or(`name.ilike.%${query}%,platform.ilike.%${query}%`)
+    .limit(10);
+
+  assets = assetResults ?? [];
+  osVersions = osResults ?? [];
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{query ? `"${query}" — Search` : 'Search'} — OSArchive</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lucida Grande', Tahoma, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #f0f0f0;
+    }
+    .site-header {
+      background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%);
+      border-bottom: 1px solid #5a7a96;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      height: 44px;
+      gap: 16px;
+    }
+    .site-logo {
+      font-family: Georgia, serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2a38;
+      text-decoration: none;
+    }
+    .site-logo span { color: #2c5f8a; }
+    .search-bar {
+      flex: 1;
+      max-width: 400px;
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid #7a9ab5;
+      border-radius: 12px;
+      padding: 0 10px;
+      height: 26px;
+      gap: 6px;
+    }
+    .search-bar input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 12px;
+      width: 100%;
+      font-family: inherit;
+    }
+    .content {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+    .search-heading {
+      font-family: Georgia, serif;
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .search-meta {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+    .section-label {
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #666;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+      margin-top: 20px;
+    }
+    .section-label:first-child { margin-top: 0; }
+    .os-results {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .os-chip {
+      display: inline-block;
+      padding: 4px 12px;
+      background: white;
+      border: 1px solid #d0d8e4;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #2c5f8a;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .os-chip:hover { background: #f0f6fc; border-color: #2c5f8a; }
+    .asset-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .asset-table th {
+      text-align: left;
+      padding: 6px 8px;
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      color: #1a2a38;
+      font-weight: 500;
+      font-size: 11px;
+      border-bottom: 1px solid #9ab5c8;
+    }
+    .asset-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
+    .asset-table tr:last-child td { border-bottom: none; }
+    .asset-table tr:hover td { background: #f0f6fc; }
+    .thumb {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      background: #f0f0f0;
+      object-fit: contain;
+    }
+    .asset-name { color: #2c5f8a; font-weight: 500; text-decoration: none; }
+    .asset-name:hover { text-decoration: underline; }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: #e8eef8;
+      color: #3a5a80;
+      border: 1px solid #c0d0e4;
+    }
+    .empty {
+      text-align: center;
+      padding: 48px;
+      color: #666;
+      font-style: italic;
+    }
+    .no-query {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+    .no-query p { font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="/" class="site-logo">OS<span>Archive</span></a>
+  <div class="search-bar">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="#1a2a38" stroke-width="1.5"/>
+      <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#1a2a38" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <form action="/search" method="get" style="width:100%">
+      <input type="text" name="q" value={query} placeholder="Search icons, UI assets, OS versions…" />
+    </form>
+  </div>
+</header>
+
+<div class="content">
+  {!query.trim() ? (
+    <div class="no-query">
+      <p>Enter a search term to find icons and UI assets.</p>
+    </div>
+  ) : (
+    <>
+      <h1 class="search-heading">Results for "{query}"</h1>
+      <p class="search-meta">{osVersions.length} OS versions · {assets.length} assets</p>
+
+      {osVersions.length > 0 && (
+        <>
+          <div class="section-label">OS versions</div>
+          <div class="os-results">
+            {osVersions.map(os => (
+              <a class="os-chip" href={`/os/${os.slug}`}>{os.name}</a>
+            ))}
+          </div>
+        </>
+      )}
+
+      {assets.length > 0 ? (
+        <>
+          <div class="section-label">Assets</div>
+          <table class="asset-table">
+            <thead>
+              <tr>
+                <th style="width:36px;"></th>
+                <th>Name</th>
+                <th>OS version</th>
+                <th>Category</th>
+                <th>Formats</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assets.map(asset => {
+                const thumbnail = asset.asset_files?.find((f: any) => f.filetype === 'png') || asset.asset_files?.[0];
+                const filetypes = [...new Set(asset.asset_files?.map((f: any) => f.filetype))];
+                return (
+                  <tr>
+                    <td>
+                      {thumbnail
+                        ? <img class="thumb" src={thumbnail.storage_url} alt={asset.name} />
+                        : <div class="thumb"></div>
+                      }
+                    </td>
+                    <td>
+                      <a class="asset-name" href={`/os/${asset.os_versions?.slug}`}>{asset.name}</a>
+                    </td>
+                    <td>{asset.os_versions?.name ?? '—'}</td>
+                    <td>{asset.categories?.name ?? '—'}</td>
+                    <td>{filetypes.map((ft: string) => <span class="badge">.{ft}</span>)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </>
+      ) : (
+        <div class="empty">No assets found for "{query}".</div>
+      )}
+    </>
+  )}
+</div>
+
+</body>
+</html>
