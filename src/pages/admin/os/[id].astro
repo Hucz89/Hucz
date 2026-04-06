@@ -452,7 +452,7 @@ const categoryGroupMap: Record<string, string> = {
 
 </div>
 
-<script define:vars={{ osVersionId: osVersion.id, osVersionSlug: osVersion.slug, SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL, SUPABASE_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL, categoryGroupMap: categoryGroupMap }}>
+<script define:vars={{ osVersionId: osVersion.id, osVersionSlug: osVersion.slug, pathName: osVersion.path_name ?? osVersion.slug, SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL, SUPABASE_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL, categoryGroupMap: categoryGroupMap }}>
 
   function showStatus(id, msg, ok) {
     const el = document.getElementById(id);
@@ -516,14 +516,19 @@ const categoryGroupMap: Record<string, string> = {
   }
 
   // Build the full R2 path for a file
+  function slugify(str) {
+    const slug = str.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+  }
+
   function buildPath(file, assetName, categorySlug, versionString, dims) {
     const ext = file.name.split('.').pop().toLowerCase();
-    const assetSlug = slugify(assetName || 'unknown');
-    const categoryGroup = categoryGroupMap[categorySlug] || 'uncategorized';
-    const version = slugify(versionString || 'unknown');
+    const assetSlug = slugify(assetName || 'Unknown');
+    const categoryGroup = categoryGroupMap[categorySlug] || 'Uncategorized';
+    const version = versionString ? versionString.trim() : 'Unknown';
     const dimStr = dims ? `_${dims}` : '';
     const filename = `${assetSlug}${dimStr}.${ext}`;
-    return `${osVersionSlug}/${categoryGroup}/${assetSlug}/${version}/${filename}`;
+    return `${pathName}/${categoryGroup}/${assetSlug}/${version}/${filename}`;
   }
 
   // File state

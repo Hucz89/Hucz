@@ -267,6 +267,10 @@ const { data: labels } = await supabase
             <input type="text" name="icon_style" placeholder="Aqua v2" />
           </div>
         </div>
+        <div>
+          <label>Path name</label>
+          <input type="text" name="path_name" placeholder="MacOSX_10.4-Tiger" />
+        </div>
         <label>Description</label>
         <textarea name="description" placeholder="Brief description of the OS release…"></textarea>
         <div id="os-status" class="status-msg"></div>
@@ -370,6 +374,7 @@ const { data: labels } = await supabase
     if (!data.kernel_version) delete data.kernel_version;
     if (!data.icon_style) delete data.icon_style;
     if (!data.description) delete data.description;
+    if (!data.path_name) delete data.path_name;
     const res = await sbInsert('os_versions', data);
     if (res.ok) {
       showStatus('os-status', 'OS version added!', true);
