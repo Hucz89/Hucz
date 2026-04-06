@@ -10,5 +10,10 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"vars": {
+		"PUBLIC_SUPABASE_URL": "https://lcwndnshkgljgdudlbdu.supabase.co",
+		"PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_pIICIzTAtHBBqhG5SNazHA_ncz6wrMu",
+		"PUBLIC_R2_WORKER_URL": "https://osarchive-upload.white-wonder89.workers.dev"
+	}
 }
