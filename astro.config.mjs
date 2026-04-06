@@ -6,7 +6,6 @@ import cloudflare from "@astrojs/cloudflare";
 
 export default defineConfig({
   site: "https://example.com",
-  output: "hybrid",
   integrations: [mdx(), sitemap()],
   adapter: cloudflare({
     platformProxy: {

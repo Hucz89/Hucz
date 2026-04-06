@@ -1,0 +1,609 @@
+---
+export const prerender = false;
+import { supabase } from '../../../lib/supabase';
+
+const { id } = Astro.params;
+
+const { data: osVersion } = await supabase
+  .from('os_versions')
+  .select('*')
+  .eq('id', id)
+  .single();
+
+if (!osVersion) return Astro.redirect('/admin');
+
+const { data: assets } = await supabase
+  .from('assets')
+  .select(`
+    *,
+    categories(name),
+    asset_files(*),
+    asset_labels(label_id, labels(name))
+  `)
+  .eq('os_version_id', id)
+  .order('name');
+
+const { data: categories } = await supabase
+  .from('categories')
+  .select('*')
+  .order('name');
+
+const { data: labels } = await supabase
+  .from('labels')
+  .select('*')
+  .order('name');
+
+const { data: fieldDefs } = await supabase
+  .from('field_definitions')
+  .select('*')
+  .eq('os_version_id', id)
+  .order('sort_order');
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit {osVersion.name} — Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lucida Grande', Tahoma, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #f0f0f0;
+    }
+    .admin-header {
+      background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%);
+      border-bottom: 1px solid #5a7a96;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      height: 44px;
+      gap: 16px;
+    }
+    .site-logo {
+      font-family: Georgia, serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2a38;
+      text-decoration: none;
+    }
+    .site-logo span { color: #2c5f8a; }
+    .admin-badge {
+      font-size: 11px;
+      background: #2c5f8a;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 8px;
+    }
+    .layout {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+    .page-title {
+      font-family: Georgia, serif;
+      font-size: 22px;
+      font-weight: bold;
+      border-bottom: 2px solid #a0b8cc;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .card-header {
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      border-bottom: 1px solid #9ab5c8;
+      padding: 8px 14px;
+      font-weight: 500;
+      font-size: 13px;
+      color: #1a2a38;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-body { padding: 14px; }
+    label {
+      display: block;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 3px;
+      margin-top: 10px;
+    }
+    label:first-child { margin-top: 0; }
+    input[type=text], input[type=date], input[type=number], textarea, select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      background: white;
+      outline: none;
+    }
+    input[type=text]:focus, textarea:focus, select:focus { border-color: #2c5f8a; }
+    textarea { resize: vertical; min-height: 60px; }
+    .btn {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid #9ab5c8;
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      color: #1a2a38;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      font-weight: 500;
+      margin-top: 12px;
+    }
+    .btn-primary {
+      background: linear-gradient(180deg, #3a78b0 0%, #2c5f8a 100%);
+      color: white;
+      border-color: #1a4a70;
+    }
+    .btn-danger {
+      background: linear-gradient(180deg, #e07060 0%, #c05040 100%);
+      color: white;
+      border-color: #a03020;
+      margin-top: 0;
+      font-size: 11px;
+      padding: 3px 8px;
+    }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .status-msg {
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-top: 8px;
+      display: none;
+    }
+    .status-ok { background: #e8f5e8; color: #2a6a2a; border: 1px solid #b0d8b0; }
+    .status-err { background: #fde8e8; color: #8a2a2a; border: 1px solid #f0b0b0; }
+    .asset-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .asset-table th {
+      text-align: left;
+      padding: 6px 8px;
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      color: #1a2a38;
+      font-weight: 500;
+      font-size: 11px;
+      border: 1px solid #9ab5c8;
+    }
+    .asset-table td {
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      vertical-align: middle;
+    }
+    .asset-table tr:nth-child(even) td { background: #f8f8f8; }
+    .thumb {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f0f0f0;
+      object-fit: contain;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: #e8eef8;
+      color: #3a5a80;
+      border: 1px solid #c0d0e4;
+      margin-right: 2px;
+    }
+    .upload-zone {
+      display: block;
+      border: 2px dashed #a0b8cc;
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.1s;
+      margin-top: 4px;
+    }
+    .upload-zone:hover, .upload-zone.dragover { background: #e8f0f8; border-color: #2c5f8a; }
+    .file-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #e8eef8;
+      border: 1px solid #c0d0e4;
+      color: #3a5a80;
+    }
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .checkbox-group label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin: 0;
+      font-size: 12px;
+      color: #1a1a1a;
+      cursor: pointer;
+    }
+    .field-def-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      margin-bottom: 8px;
+    }
+    .field-def-row input { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<header class="admin-header">
+  <a href="/" class="site-logo">OS<span>Archive</span></a>
+  <span class="admin-badge">Admin</span>
+  <a href="/admin" style="margin-left:auto;font-size:12px;color:#1a2a38;text-decoration:none;">← Back to admin</a>
+</header>
+
+<div class="layout">
+  <div class="page-title">Editing: {osVersion.name}</div>
+
+  <!-- Add Asset -->
+  <div class="card">
+    <div class="card-header">Add asset</div>
+    <div class="card-body">
+      <form id="add-asset-form">
+        <input type="hidden" name="os_version_id" value={osVersion.id} />
+
+        <div class="three-col">
+          <div>
+            <label>Asset name</label>
+            <input type="text" name="name" placeholder="Finder" required />
+          </div>
+          <div>
+            <label>Category</label>
+            <select name="category_id">
+              <option value="">— none —</option>
+              {categories?.map(cat => (
+                <option value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Version string</label>
+            <input type="text" name="version_string" placeholder="10.4.3" />
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <label>Source path</label>
+            <input type="text" name="source_path" placeholder="/System/Library/CoreServices/" />
+          </div>
+          <div>
+            <label>Notes</label>
+            <input type="text" name="notes" placeholder="Optional notes" />
+          </div>
+        </div>
+
+        <label>Labels</label>
+        <div class="checkbox-group" id="label-checkboxes">
+          {labels?.map(label => (
+            <label>
+              <input type="checkbox" name="labels" value={label.id} />
+              {label.name}
+            </label>
+          ))}
+        </div>
+
+        <label style="margin-top:14px;">Upload files</label>
+        <input type="file" id="file-input" multiple accept=".png,.icns,.tiff,.svg,.jpg" style="display:none;" />
+        <label class="upload-zone" for="file-input" id="upload-zone">
+          <div id="upload-prompt">Click or drag files here (.png, .icns, .tiff, .svg)</div>
+          <div class="file-preview" id="file-preview"></div>
+        </label>
+
+        <div id="asset-status" class="status-msg"></div>
+        <button type="submit" class="btn btn-primary">Add asset &amp; upload files</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom field definitions -->
+  <div class="card">
+    <div class="card-header">
+      Custom columns for this OS version
+      <span style="font-size:11px;font-weight:400;color:#666;">These appear as extra columns in the asset table</span>
+    </div>
+    <div class="card-body">
+      <div id="field-def-list">
+        {fieldDefs?.map(f => (
+          <div class="field-def-row" data-id={f.id}>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500;">{f.display_label}</div>
+              <div style="font-size:11px;color:#666;">key: {f.field_key} · type: {f.field_type}</div>
+            </div>
+            <button class="btn btn-danger delete-field" data-id={f.id}>Remove</button>
+          </div>
+        ))}
+        {(!fieldDefs || fieldDefs.length === 0) && (
+          <p style="font-size:12px;color:#666;font-style:italic;margin-bottom:10px;">No custom columns yet.</p>
+        )}
+      </div>
+      <form id="add-field-form" style="margin-top:10px;">
+        <div class="three-col">
+          <div>
+            <label>Display label</label>
+            <input type="text" name="display_label" placeholder="Pixel grid" />
+          </div>
+          <div>
+            <label>Field key</label>
+            <input type="text" name="field_key" placeholder="pixel_grid" />
+          </div>
+          <div>
+            <label>Type</label>
+            <select name="field_type">
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="boolean">Boolean</option>
+              <option value="url">URL</option>
+            </select>
+          </div>
+        </div>
+        <div id="field-status" class="status-msg"></div>
+        <button type="submit" class="btn btn-primary">Add column</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Asset list -->
+  <div class="card">
+    <div class="card-header">
+      Assets ({assets?.length ?? 0})
+      <a href={`/os/${osVersion.slug}`} style="font-size:11px;font-weight:400;color:#2c5f8a;">View page →</a>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {assets && assets.length > 0 ? (
+        <table class="asset-table">
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Files</th>
+              <th>Labels</th>
+              <th style="width:60px;"></th>
+            </tr>
+          </thead>
+          <tbody id="asset-tbody">
+            {assets.map(asset => {
+              const thumbnail = asset.asset_files?.find((f: any) => f.filetype === 'png') || asset.asset_files?.[0];
+              const labels = asset.asset_labels?.map((al: any) => al.labels) ?? [];
+              return (
+                <tr data-asset-id={asset.id}>
+                  <td>
+                    {thumbnail
+                      ? <img class="thumb" src={thumbnail.storage_url} alt={asset.name} />
+                      : <div class="thumb"></div>
+                    }
+                  </td>
+                  <td style="font-weight:500;">{asset.name}</td>
+                  <td>{asset.categories?.name ?? '—'}</td>
+                  <td>{asset.asset_files?.map((f: any) => <span class="badge">.{f.filetype}</span>)}</td>
+                  <td>{labels.map((l: any) => <span class="badge">{l?.name}</span>)}</td>
+                  <td>
+                    <button class="btn btn-danger delete-asset" data-id={asset.id}>Delete</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <p style="padding:20px;color:#666;font-style:italic;font-size:12px;">No assets yet.</p>
+      )}
+    </div>
+  </div>
+
+</div>
+
+<script define:vars={{ osVersionId: osVersion.id, SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL, SUPABASE_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL }}>
+
+  function showStatus(id, msg, ok) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status-msg ' + (ok ? 'status-ok' : 'status-err');
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 4000);
+  }
+
+  async function sbPost(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(data)
+    });
+    return res;
+  }
+
+  async function sbDelete(table, id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+
+  // File upload zone
+  const zone = document.getElementById('upload-zone');
+  const fileInput = document.getElementById('file-input');
+  const preview = document.getElementById('file-preview');
+  let selectedFiles = [];
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    selectedFiles = Array.from(e.dataTransfer.files);
+    updatePreview();
+  });
+  fileInput.addEventListener('change', () => {
+    console.log('files:', fileInput.files);
+    selectedFiles = Array.from(fileInput.files);
+    updatePreview();
+  });
+
+  function updatePreview() {
+    preview.innerHTML = '';
+    selectedFiles.forEach(f => {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip';
+      chip.textContent = f.name;
+      preview.appendChild(chip);
+    });
+    document.getElementById('upload-prompt').style.display = selectedFiles.length ? 'none' : 'block';
+  }
+
+ async function uploadFile(file, assetId) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const path = `${osVersionId}/${assetId}/${file.name}`;
+    const res = await fetch(R2_WORKER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-File-Path': path,
+        'X-File-Name': file.name
+      },
+      body: file
+    });
+    if (!res.ok) return null;
+    const { url } = await res.json();
+
+    let pixelSize = null;
+    const sizeMatch = file.name.match(/[_@x](\d+)/i);
+    if (sizeMatch) pixelSize = parseInt(sizeMatch[1]);
+
+    await sbPost('asset_files', {
+      asset_id: assetId,
+      filetype: ext,
+      pixel_size: pixelSize,
+      storage_url: url,
+      file_bytes: file.size
+    });
+
+    return url;
+  }
+
+  // Add asset form
+  document.getElementById('add-asset-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const fd = new FormData(form);
+
+    const data = {
+      os_version_id: osVersionId,
+      name: fd.get('name'),
+      category_id: fd.get('category_id') || null,
+      version_string: fd.get('version_string') || null,
+      source_path: fd.get('source_path') || null,
+      notes: fd.get('notes') || null,
+    };
+
+    showStatus('asset-status', 'Saving…', true);
+    const res = await sbPost('assets', data);
+    if (!res.ok) {
+      showStatus('asset-status', 'Error creating asset', false);
+      return;
+    }
+    const [asset] = await res.json();
+
+    const selectedLabels = fd.getAll('labels');
+    for (const labelId of selectedLabels) {
+      await sbPost('asset_labels', { asset_id: asset.id, label_id: labelId });
+    }
+
+    if (selectedFiles.length > 0) {
+      showStatus('asset-status', `Uploading ${selectedFiles.length} file(s)…`, true);
+      for (const file of selectedFiles) {
+        await uploadFile(file, asset.id);
+      }
+    }
+
+    showStatus('asset-status', 'Asset added!', true);
+    form.reset();
+    selectedFiles = [];
+    preview.innerHTML = '';
+    document.getElementById('upload-prompt').style.display = 'block';
+    setTimeout(() => location.reload(), 10000);
+  });
+
+  // Add custom field
+  document.getElementById('add-field-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const fd = new FormData(form);
+    const res = await sbPost('field_definitions', {
+      os_version_id: osVersionId,
+      display_label: fd.get('display_label'),
+      field_key: fd.get('field_key'),
+      field_type: fd.get('field_type'),
+      show_in_table: true,
+      sort_order: 0
+    });
+    if (res.ok) {
+      showStatus('field-status', 'Column added!', true);
+      form.reset();
+      setTimeout(() => location.reload(), 800);
+    } else {
+      showStatus('field-status', 'Error adding column', false);
+    }
+  });
+
+  // Delete field
+  document.querySelectorAll('.delete-field').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Remove this column?')) return;
+      await sbDelete('field_definitions', btn.dataset.id);
+      btn.closest('.field-def-row').remove();
+    });
+  });
+
+  // Delete asset
+  document.querySelectorAll('.delete-asset').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this asset and all its files?')) return;
+      await sbDelete('assets', btn.dataset.id);
+      btn.closest('tr').remove();
+    });
+  });
+</script>
+
+</body>
+</html>

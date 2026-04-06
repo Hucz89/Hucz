@@ -1,0 +1,444 @@
+---
+export const prerender = false;
+import { supabase } from '../../lib/supabase';
+
+const { slug } = Astro.params;
+
+const { data: osVersion } = await supabase
+  .from('os_versions')
+  .select('*')
+  .eq('slug', slug)
+  .single();
+
+if (!osVersion) return Astro.redirect('/404');
+
+const { data: assets } = await supabase
+  .from('assets')
+  .select(`
+    *,
+    categories(name),
+    asset_files(*),
+    asset_labels(label_id, labels(name, color_hex)),
+    asset_field_values(value, field_definitions(field_key, display_label, sort_order))
+  `)
+  .eq('os_version_id', osVersion.id)
+  .order('name');
+
+const { data: fieldDefs } = await supabase
+  .from('field_definitions')
+  .select('*')
+  .eq('os_version_id', osVersion.id)
+  .eq('show_in_table', true)
+  .order('sort_order');
+
+const { data: categories } = await supabase
+  .from('categories')
+  .select('*')
+  .order('name');
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{osVersion.name} — OSArchive</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lucida Grande', Tahoma, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #f0f0f0;
+    }
+    .site-header {
+      background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%);
+      border-bottom: 1px solid #5a7a96;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      height: 44px;
+      gap: 16px;
+    }
+    .site-logo {
+      font-family: Georgia, serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a2a38;
+      text-decoration: none;
+    }
+    .site-logo span { color: #2c5f8a; }
+    .search-bar {
+      flex: 1;
+      max-width: 340px;
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid #7a9ab5;
+      border-radius: 12px;
+      padding: 0 10px;
+      height: 26px;
+      gap: 6px;
+    }
+    .search-bar input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 12px;
+      width: 100%;
+      font-family: inherit;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 180px 1fr 180px;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 16px;
+      gap: 0;
+      align-items: start;
+    }
+    .sidebar-left {
+      padding-right: 16px;
+      border-right: 1px solid #ccc;
+    }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #666;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #ddd;
+      margin-top: 14px;
+    }
+    .sidebar-label:first-child { margin-top: 0; }
+    .sidebar-link {
+      display: block;
+      font-size: 12px;
+      color: #2c5f8a;
+      padding: 3px 0;
+      text-decoration: none;
+    }
+    .sidebar-link:hover { text-decoration: underline; }
+    .main-content { padding: 0 20px; }
+    .breadcrumb {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    .breadcrumb a { color: #2c5f8a; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .page-title {
+      font-family: Georgia, serif;
+      font-size: 26px;
+      font-weight: bold;
+      border-bottom: 2px solid #a0b8cc;
+      padding-bottom: 8px;
+      margin-bottom: 4px;
+    }
+    .page-subtitle {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 14px;
+      font-style: italic;
+    }
+    .section-heading {
+      font-family: Georgia, serif;
+      font-size: 17px;
+      font-weight: bold;
+      border-bottom: 1px solid #a0b8cc;
+      padding-bottom: 4px;
+      margin: 18px 0 10px;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .filter-label { font-size: 11px; color: #666; }
+    .filter-btn {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 10px;
+      border: 1px solid #a0b8cc;
+      background: #f0f4f8;
+      color: #1a1a1a;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: #2c5f8a;
+      color: #fff;
+      border-color: #2c5f8a;
+    }
+    .filter-input {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      border: 1px solid #a0b8cc;
+      background: #fff;
+      outline: none;
+      font-family: inherit;
+      width: 160px;
+      margin-left: auto;
+    }
+    .asset-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+    .asset-table th {
+      text-align: left;
+      padding: 6px 8px;
+      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
+      color: #1a2a38;
+      font-weight: 500;
+      font-size: 11px;
+      border: 1px solid #9ab5c8;
+    }
+    .asset-table td {
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      vertical-align: middle;
+    }
+    .asset-table tr:nth-child(even) td { background: #f8f8f8; }
+    .asset-table tr:hover td { background: #e8f0f8; }
+    .thumb {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f0f0f0;
+      object-fit: contain;
+    }
+    .asset-name { color: #2c5f8a; cursor: pointer; font-weight: 500; }
+    .asset-name:hover { text-decoration: underline; }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 500;
+      margin-right: 2px;
+      background: #e8eef8;
+      color: #3a5a80;
+      border: 1px solid #c0d0e4;
+    }
+    .size-pill {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      color: #666;
+      margin-right: 2px;
+      font-family: monospace;
+    }
+    .infobox {
+      background: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: 12px;
+      margin-left: 16px;
+      border-left: 1px solid #ccc;
+    }
+    .infobox-title {
+      font-weight: 500;
+      font-size: 12px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+    .infobox-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid #eee;
+      gap: 8px;
+    }
+    .infobox-row:last-child { border-bottom: none; }
+    .infobox-key { color: #666; font-size: 11px; flex-shrink: 0; }
+    .infobox-val { color: #1a1a1a; font-size: 11px; text-align: right; }
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="/" class="site-logo">OS<span>Archive</span></a>
+  <div class="search-bar">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="#1a2a38" stroke-width="1.5"/>
+      <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#1a2a38" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <form action="/search" method="get" style="width:100%">
+      <input type="text" name="q" placeholder="Search icons, UI assets, OS versions…" />
+    </form>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="sidebar-left">
+    <div class="sidebar-label">Mac OS X</div>
+    <a class="sidebar-link" href="/os/macosx-10-4-tiger">10.4 Tiger</a>
+    <div class="sidebar-label">Windows</div>
+    <a class="sidebar-link" href="/os/windows-xp">Windows XP</a>
+    <div class="sidebar-label">Mobile</div>
+    <a class="sidebar-link" href="/os/iphone-os-1">iPhone OS 1</a>
+  </div>
+
+  <div class="main-content">
+    <div class="breadcrumb">
+      <a href="/">Home</a> › <a href="/#browse">{osVersion.platform}</a> › {osVersion.name}
+    </div>
+
+    <h1 class="page-title">{osVersion.name}</h1>
+    <p class="page-subtitle">
+      Icon &amp; UI asset archive — {assets?.length ?? 0} assets
+    </p>
+
+    {osVersion.description && <p style="margin-bottom: 14px; line-height: 1.65;">{osVersion.description}</p>}
+
+    <h2 class="section-heading">Assets</h2>
+
+    <div class="filter-bar" id="filter-bar">
+      <span class="filter-label">Category:</span>
+      <button class="filter-btn active" data-category="all">All</button>
+      {categories?.map(cat => (
+        <button class="filter-btn" data-category={cat.slug}>{cat.name}</button>
+      ))}
+      <input class="filter-input" type="text" id="name-filter" placeholder="Filter by name…" />
+    </div>
+
+    {assets && assets.length > 0 ? (
+      <table class="asset-table" id="asset-table">
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Formats</th>
+            <th>Sizes</th>
+            <th>Version</th>
+            {fieldDefs?.map(f => <th>{f.display_label}</th>)}
+            <th>Labels</th>
+          </tr>
+        </thead>
+        <tbody>
+          {assets.map(asset => {
+            const filetypes = [...new Set(asset.asset_files?.map((f: any) => f.filetype))];
+            const sizes = [...new Set(asset.asset_files?.map((f: any) => f.pixel_size).filter(Boolean))].sort((a: number, b: number) => b - a);
+            const smallSizes = [16, 32, 48, 64, 128];
+            const thumbnail = asset.asset_files?.find((f: any) => f.filetype === 'png' && smallSizes.includes(f.pixel_size)) || asset.asset_files?.[0];
+            const labels = asset.asset_labels?.map((al: any) => al.labels) ?? [];
+            const fieldValues = Object.fromEntries(
+              asset.asset_field_values?.map((fv: any) => [fv.field_definitions?.field_key, fv.value]) ?? []
+            );
+
+            return (
+              <tr data-category={asset.categories?.name?.toLowerCase().replace(/\s+/g, '-') ?? ''} data-name={asset.name.toLowerCase()}>
+                <td>
+                  {thumbnail
+                    ? <img class="thumb" src={thumbnail.storage_url} alt={asset.name} />
+                    : <div class="thumb"></div>
+                  }
+                </td>
+                <td><span class="asset-name">{asset.name}</span></td>
+                <td>{asset.categories?.name ?? '—'}</td>
+                <td>{filetypes.map((ft: string) => <span class="badge">.{ft}</span>)}</td>
+                <td>{sizes.map((s: number) => <span class="size-pill">{s}</span>)}</td>
+                <td>{asset.version_string ?? '—'}</td>
+                {fieldDefs?.map(f => <td>{fieldValues[f.field_key] ?? '—'}</td>)}
+                <td>{labels.map((l: any) => <span class="badge">{l?.name}</span>)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    ) : (
+      <div class="empty-state">No assets yet. Add some from the admin panel.</div>
+    )}
+  </div>
+
+  <div class="infobox">
+    <div class="infobox-title">{osVersion.name}</div>
+    {osVersion.screenshot_url && (
+      <img src={osVersion.screenshot_url} alt={osVersion.name} style="width:100%;border-radius:4px;margin-bottom:8px;" />
+    )}
+    {osVersion.released_at && (
+      <div class="infobox-row">
+        <span class="infobox-key">Released</span>
+        <span class="infobox-val">{new Date(osVersion.released_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+      </div>
+    )}
+    {osVersion.kernel_version && (
+      <div class="infobox-row">
+        <span class="infobox-key">Kernel</span>
+        <span class="infobox-val">{osVersion.kernel_version}</span>
+      </div>
+    )}
+    {osVersion.icon_style && (
+      <div class="infobox-row">
+        <span class="infobox-key">Icon style</span>
+        <span class="infobox-val">{osVersion.icon_style}</span>
+      </div>
+    )}
+    <div class="infobox-row">
+      <span class="infobox-key">Assets</span>
+      <span class="infobox-val">{assets?.length ?? 0}</span>
+    </div>
+    <div class="infobox-row">
+      <span class="infobox-key">Platform</span>
+      <span class="infobox-val">{osVersion.platform}</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  const nameFilter = document.getElementById('name-filter') as HTMLInputElement;
+  const rows = document.querySelectorAll('#asset-table tbody tr');
+
+  let activeCategory = 'all';
+  let nameQuery = '';
+
+  function applyFilters() {
+    rows.forEach(row => {
+      const el = row as HTMLElement;
+      const cat = el.dataset.category ?? '';
+      const name = el.dataset.name ?? '';
+      const catMatch = activeCategory === 'all' || cat === activeCategory;
+      const nameMatch = name.includes(nameQuery);
+      el.style.display = catMatch && nameMatch ? '' : 'none';
+    });
+  }
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeCategory = (btn as HTMLElement).dataset.category ?? 'all';
+      applyFilters();
+    });
+  });
+
+  nameFilter?.addEventListener('input', () => {
+    nameQuery = nameFilter.value.toLowerCase();
+    applyFilters();
+  });
+</script>
+
+</body>
+</html>
