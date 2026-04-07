@@ -1,0 +1,46 @@
+export const prerender = false;
+import type { APIRoute } from 'astro';
+
+export const POST: APIRoute = async ({ request, locals }) => {
+  const serviceKey = (locals.runtime?.env?.SUPABASE_SERVICE_KEY) as string;
+  const supabaseUrl = (locals.runtime?.env?.PUBLIC_SUPABASE_URL) as string;
+
+  const body = await request.json();
+
+  const res = await fetch(`${supabaseUrl}/rest/v1/resource_files`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  return new Response(JSON.stringify(data), {
+    status: res.status,
+    headers: { 'Content-Type': 'application/json' }
+  });
+};
+
+export const PATCH: APIRoute = async ({ request, locals }) => {
+  const serviceKey = (locals.runtime?.env?.SUPABASE_SERVICE_KEY) as string;
+  const supabaseUrl = (locals.runtime?.env?.PUBLIC_SUPABASE_URL) as string;
+
+  const { id, ...body } = await request.json();
+
+  const res = await fetch(`${supabaseUrl}/rest/v1/resource_files?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(body)
+  });
+
+  return new Response(null, { status: res.status });
+};

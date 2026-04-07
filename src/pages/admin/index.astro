@@ -26,166 +26,39 @@ const { data: labels } = await supabase
   <title>Admin — OSArchive</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Lucida Grande', Tahoma, sans-serif;
-      font-size: 13px;
-      color: #1a1a1a;
-      background: #f0f0f0;
-    }
-    .admin-header {
-      background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%);
-      border-bottom: 1px solid #5a7a96;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      height: 44px;
-      gap: 16px;
-    }
-    .site-logo {
-      font-family: Georgia, serif;
-      font-size: 18px;
-      font-weight: bold;
-      color: #1a2a38;
-      text-decoration: none;
-    }
+    body { font-family: 'Lucida Grande', Tahoma, sans-serif; font-size: 13px; color: #1a1a1a; background: #f0f0f0; }
+    .admin-header { background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%); border-bottom: 1px solid #5a7a96; padding: 0 20px; display: flex; align-items: center; height: 44px; gap: 16px; }
+    .site-logo { font-family: Georgia, serif; font-size: 18px; font-weight: bold; color: #1a2a38; text-decoration: none; }
     .site-logo span { color: #2c5f8a; }
-    .admin-badge {
-      font-size: 11px;
-      background: #2c5f8a;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 8px;
-    }
-    .layout {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 20px 16px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-    .card {
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .card-full { grid-column: 1 / -1; }
-    .card-header {
-      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
-      border-bottom: 1px solid #9ab5c8;
-      padding: 8px 14px;
-      font-weight: 500;
-      font-size: 13px;
-      color: #1a2a38;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+    .admin-badge { font-size: 11px; background: #2c5f8a; color: white; padding: 2px 8px; border-radius: 8px; }
+    .layout { max-width: 960px; margin: 0 auto; padding: 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+    .card-header { background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%); border-bottom: 1px solid #9ab5c8; padding: 8px 14px; font-weight: 500; font-size: 13px; color: #1a2a38; display: flex; align-items: center; justify-content: space-between; }
     .card-body { padding: 14px; }
-    label {
-      display: block;
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 3px;
-      margin-top: 10px;
-    }
+    label { display: block; font-size: 11px; color: #666; margin-bottom: 3px; margin-top: 10px; }
     label:first-child { margin-top: 0; }
-    input[type=text], input[type=date], textarea, select {
-      width: 100%;
-      padding: 6px 8px;
-      border: 1px solid #bbb;
-      border-radius: 4px;
-      font-size: 12px;
-      font-family: inherit;
-      background: white;
-      outline: none;
-    }
-    input[type=text]:focus, input[type=date]:focus, textarea:focus, select:focus {
-      border-color: #2c5f8a;
-    }
+    input[type=text], input[type=date], textarea, select { width: 100%; padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; font-size: 12px; font-family: inherit; background: white; outline: none; }
+    input[type=text]:focus, input[type=date]:focus, textarea:focus, select:focus { border-color: #2c5f8a; }
     textarea { resize: vertical; min-height: 70px; }
-    .btn {
-      display: inline-block;
-      padding: 6px 14px;
-      border-radius: 4px;
-      border: 1px solid #9ab5c8;
-      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
-      color: #1a2a38;
-      font-size: 12px;
-      font-family: inherit;
-      cursor: pointer;
-      font-weight: 500;
-      margin-top: 12px;
-    }
+    .btn { display: inline-block; padding: 6px 14px; border-radius: 4px; border: 1px solid #9ab5c8; background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%); color: #1a2a38; font-size: 12px; font-family: inherit; cursor: pointer; font-weight: 500; margin-top: 12px; }
     .btn:hover { background: linear-gradient(180deg, #c0d8ec 0%, #a4c2d4 100%); }
-    .btn-primary {
-      background: linear-gradient(180deg, #3a78b0 0%, #2c5f8a 100%);
-      color: white;
-      border-color: #1a4a70;
-    }
+    .btn-primary { background: linear-gradient(180deg, #3a78b0 0%, #2c5f8a 100%); color: white; border-color: #1a4a70; }
     .btn-primary:hover { background: linear-gradient(180deg, #2c5f8a 0%, #1a4a70 100%); }
-    .btn-danger {
-      background: linear-gradient(180deg, #e07060 0%, #c05040 100%);
-      color: white;
-      border-color: #a03020;
-    }
     .os-list { list-style: none; }
-    .os-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #eee;
-      gap: 8px;
-    }
+    .os-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; gap: 8px; }
     .os-item:last-child { border-bottom: none; }
     .os-item-name { font-weight: 500; font-size: 12px; }
     .os-item-meta { font-size: 11px; color: #666; }
     .os-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
     .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 8px;
-      background: #e8eef8;
-      color: #3a5a80;
-      border: 1px solid #c0d0e4;
-    }
-    .tag-remove {
-      cursor: pointer;
-      color: #999;
-      font-size: 13px;
-      line-height: 1;
-      background: none;
-      border: none;
-      padding: 0;
-      font-family: inherit;
-    }
+    .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 8px; background: #e8eef8; color: #3a5a80; border: 1px solid #c0d0e4; }
+    .tag-remove { cursor: pointer; color: #999; font-size: 13px; line-height: 1; background: none; border: none; padding: 0; font-family: inherit; }
     .tag-remove:hover { color: #c05040; }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .status-msg {
-      font-size: 11px;
-      padding: 6px 10px;
-      border-radius: 4px;
-      margin-top: 8px;
-      display: none;
-    }
+    .status-msg { font-size: 11px; padding: 6px 10px; border-radius: 4px; margin-top: 8px; display: none; }
     .status-ok { background: #e8f5e8; color: #2a6a2a; border: 1px solid #b0d8b0; }
     .status-err { background: #fde8e8; color: #8a2a2a; border: 1px solid #f0b0b0; }
-    .section-divider {
-      grid-column: 1 / -1;
-      font-family: Georgia, serif;
-      font-size: 15px;
-      font-weight: bold;
-      color: #2c5f8a;
-      border-bottom: 1px solid #a0b8cc;
-      padding-bottom: 6px;
-      margin-top: 8px;
-    }
+    .section-divider { grid-column: 1 / -1; font-family: Georgia, serif; font-size: 15px; font-weight: bold; color: #2c5f8a; border-bottom: 1px solid #a0b8cc; padding-bottom: 6px; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -197,10 +70,8 @@ const { data: labels } = await supabase
 </header>
 
 <div class="layout">
-
   <div class="section-divider">OS versions</div>
 
-  <!-- OS Version list -->
   <div class="card">
     <div class="card-header">Existing OS versions</div>
     <div class="card-body">
@@ -226,20 +97,13 @@ const { data: labels } = await supabase
     </div>
   </div>
 
-  <!-- Add OS Version -->
   <div class="card">
     <div class="card-header">Add OS version</div>
     <div class="card-body">
       <form id="add-os-form">
         <div class="two-col">
-          <div>
-            <label>Name</label>
-            <input type="text" name="name" placeholder="Mac OS X 10.4 Tiger" required />
-          </div>
-          <div>
-            <label>Slug</label>
-            <input type="text" name="slug" placeholder="macosx-10-4-tiger" required />
-          </div>
+          <div><label>Name</label><input type="text" name="name" placeholder="Mac OS X 10.4 Tiger" required /></div>
+          <div><label>Slug</label><input type="text" name="slug" placeholder="macosx-10-4-tiger" required /></div>
         </div>
         <div class="two-col">
           <div>
@@ -253,25 +117,13 @@ const { data: labels } = await supabase
               <option value="other">Other</option>
             </select>
           </div>
-          <div>
-            <label>Released</label>
-            <input type="date" name="released_at" />
-          </div>
+          <div><label>Released</label><input type="date" name="released_at" /></div>
         </div>
         <div class="two-col">
-          <div>
-            <label>Kernel version</label>
-            <input type="text" name="kernel_version" placeholder="XNU 792" />
-          </div>
-          <div>
-            <label>Icon style</label>
-            <input type="text" name="icon_style" placeholder="Aqua v2" />
-          </div>
+          <div><label>Kernel version</label><input type="text" name="kernel_version" placeholder="XNU 792" /></div>
+          <div><label>Icon style</label><input type="text" name="icon_style" placeholder="Aqua v2" /></div>
         </div>
-        <div>
-          <label>Path name</label>
-          <input type="text" name="path_name" placeholder="MacOSX_10.4-Tiger" />
-        </div>
+        <div><label>Path name</label><input type="text" name="path_name" placeholder="MacOSX_10.4-Tiger" /></div>
         <label>Description</label>
         <textarea name="description" placeholder="Brief description of the OS release…"></textarea>
         <div id="os-status" class="status-msg"></div>
@@ -282,7 +134,6 @@ const { data: labels } = await supabase
 
   <div class="section-divider">Categories &amp; labels</div>
 
-  <!-- Categories -->
   <div class="card">
     <div class="card-header">Categories</div>
     <div class="card-body">
@@ -295,17 +146,13 @@ const { data: labels } = await supabase
         ))}
       </div>
       <form id="add-category-form" style="display:flex;gap:6px;align-items:flex-end;">
-        <div style="flex:1">
-          <label>New category</label>
-          <input type="text" name="name" placeholder="Application" />
-        </div>
+        <div style="flex:1"><label>New category</label><input type="text" name="name" placeholder="Application" /></div>
         <button type="submit" class="btn" style="margin-top:0;">Add</button>
       </form>
       <div id="cat-status" class="status-msg"></div>
     </div>
   </div>
 
-  <!-- Labels -->
   <div class="card">
     <div class="card-header">Labels</div>
     <div class="card-body">
@@ -318,65 +165,49 @@ const { data: labels } = await supabase
         ))}
       </div>
       <form id="add-label-form" style="display:flex;gap:6px;align-items:flex-end;">
-        <div style="flex:1">
-          <label>New label</label>
-          <input type="text" name="name" placeholder="stock" />
-        </div>
+        <div style="flex:1"><label>New label</label><input type="text" name="name" placeholder="stock" /></div>
         <button type="submit" class="btn" style="margin-top:0;">Add</button>
       </form>
       <div id="label-status" class="status-msg"></div>
     </div>
   </div>
-
 </div>
 
-<script>
-  const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
-  const SUPABASE_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-
-  function showStatus(id: string, msg: string, ok: boolean) {
-    const el = document.getElementById(id)!;
+<script define:vars={{ API_SECRET: Astro.locals.runtime?.env?.API_SECRET ?? import.meta.env.API_SECRET }}>
+  function showStatus(id, msg, ok) {
+    const el = document.getElementById(id);
     el.textContent = msg;
     el.className = 'status-msg ' + (ok ? 'status-ok' : 'status-err');
     el.style.display = 'block';
     setTimeout(() => el.style.display = 'none', 3000);
   }
 
-  async function sbInsert(table: string, data: object) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  async function apiPost(endpoint, data) {
+    return fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Prefer': 'return=representation'
-      },
+      headers: { 'Content-Type': 'application/json', 'x-api-secret': API_SECRET },
       body: JSON.stringify(data)
     });
-    return res;
   }
 
-  async function sbDelete(table: string, id: string) {
-    await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+  async function apiDelete(endpoint, id) {
+    return fetch(endpoint, {
       method: 'DELETE',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
+      headers: { 'Content-Type': 'application/json', 'x-api-secret': API_SECRET },
+      body: JSON.stringify({ id })
     });
   }
 
-  // Add OS version
   document.getElementById('add-os-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
+    const form = e.target;
     const data = Object.fromEntries(new FormData(form));
     if (!data.released_at) delete data.released_at;
     if (!data.kernel_version) delete data.kernel_version;
     if (!data.icon_style) delete data.icon_style;
     if (!data.description) delete data.description;
     if (!data.path_name) delete data.path_name;
-    const res = await sbInsert('os_versions', data);
+    const res = await apiPost('/api/os-versions', data);
     if (res.ok) {
       showStatus('os-status', 'OS version added!', true);
       form.reset();
@@ -387,17 +218,16 @@ const { data: labels } = await supabase
     }
   });
 
-  // Add category
   document.getElementById('add-category-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const name = (new FormData(form).get('name') as string).trim();
+    const form = e.target;
+    const name = new FormData(form).get('name').trim();
     if (!name) return;
     const slug = name.toLowerCase().replace(/\s+/g, '-');
-    const res = await sbInsert('categories', { name, slug });
+    const res = await apiPost('/api/categories', { name, slug });
     if (res.ok) {
       const [cat] = await res.json();
-      const list = document.getElementById('category-list')!;
+      const list = document.getElementById('category-list');
       const tag = document.createElement('span');
       tag.className = 'tag';
       tag.dataset.id = cat.id;
@@ -410,16 +240,15 @@ const { data: labels } = await supabase
     }
   });
 
-  // Add label
   document.getElementById('add-label-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const name = (new FormData(form).get('name') as string).trim();
+    const form = e.target;
+    const name = new FormData(form).get('name').trim();
     if (!name) return;
-    const res = await sbInsert('labels', { name });
+    const res = await apiPost('/api/labels', { name });
     if (res.ok) {
       const [label] = await res.json();
-      const list = document.getElementById('label-list')!;
+      const list = document.getElementById('label-list');
       const tag = document.createElement('span');
       tag.className = 'tag';
       tag.dataset.id = label.id;
@@ -432,14 +261,13 @@ const { data: labels } = await supabase
     }
   });
 
-  // Remove tags
   document.addEventListener('click', async (e) => {
-    const btn = (e.target as HTMLElement).closest('.tag-remove') as HTMLElement;
+    const btn = e.target.closest('.tag-remove');
     if (!btn) return;
-    const id = btn.dataset.id!;
-    const type = btn.dataset.type!;
-    const table = type === 'category' ? 'categories' : 'labels';
-    await sbDelete(table, id);
+    const id = btn.dataset.id;
+    const type = btn.dataset.type;
+    const endpoint = type === 'category' ? '/api/categories' : '/api/labels';
+    await apiDelete(endpoint, id);
     btn.closest('.tag')?.remove();
   });
 </script>

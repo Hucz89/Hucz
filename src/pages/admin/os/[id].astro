@@ -12,13 +12,13 @@ const { data: osVersion } = await supabase
 
 if (!osVersion) return Astro.redirect('/admin');
 
-const { data: assets } = await supabase
-  .from('assets')
+const { data: resources } = await supabase
+  .from('resources')
   .select(`
     *,
     categories(name, slug),
-    asset_files(*),
-    asset_labels(label_id, labels(name))
+    resource_files(*),
+    resource_labels(label_id, labels(name))
   `)
   .eq('os_version_id', id)
   .order('name');
@@ -57,7 +57,7 @@ const categoryGroupMap: Record<string, string> = {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Edit {osVersion.name} — Admin</title>
-  <style>
+  <style lang="scss">
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Lucida Grande', Tahoma, sans-serif;
@@ -74,204 +74,86 @@ const categoryGroupMap: Record<string, string> = {
       height: 44px;
       gap: 16px;
     }
-    .site-logo {
-      font-family: Georgia, serif;
-      font-size: 18px;
-      font-weight: bold;
-      color: #1a2a38;
-      text-decoration: none;
-    }
+    .site-logo { font-family: Georgia, serif; font-size: 18px; font-weight: bold; color: #1a2a38; text-decoration: none; }
     .site-logo span { color: #2c5f8a; }
-    .admin-badge {
-      font-size: 11px;
-      background: #2c5f8a;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 8px;
-    }
-    .layout {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 20px 16px;
-    }
-    .page-title {
-      font-family: Georgia, serif;
-      font-size: 22px;
-      font-weight: bold;
-      border-bottom: 2px solid #a0b8cc;
-      padding-bottom: 8px;
-      margin-bottom: 16px;
-    }
-    .card {
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
+    .admin-badge { font-size: 11px; background: #2c5f8a; color: white; padding: 2px 8px; border-radius: 8px; }
+    .layout { max-width: 1000px; margin: 0 auto; padding: 20px 16px; }
+    .page-title { font-family: Georgia, serif; font-size: 22px; font-weight: bold; border-bottom: 2px solid #a0b8cc; padding-bottom: 8px; margin-bottom: 16px; }
+    .card { background: white; border: 1px solid #ddd; border-radius: 6px; overflow: visible; margin-bottom: 20px; }
     .card-header {
       background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
-      border-bottom: 1px solid #9ab5c8;
-      padding: 8px 14px;
-      font-weight: 500;
-      font-size: 13px;
-      color: #1a2a38;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      border-bottom: 1px solid #9ab5c8; padding: 8px 14px; font-weight: 500; font-size: 13px; color: #1a2a38;
+      display: flex; align-items: center; justify-content: space-between; border-radius: 6px 6px 0 0;
     }
     .card-body { padding: 14px; }
-    label {
-      display: block;
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 3px;
-      margin-top: 10px;
-    }
+    label { display: block; font-size: 11px; color: #666; margin-bottom: 3px; margin-top: 10px; }
     label:first-child { margin-top: 0; }
     input[type=text], input[type=date], input[type=number], textarea, select {
-      width: 100%;
-      padding: 6px 8px;
-      border: 1px solid #bbb;
-      border-radius: 4px;
-      font-size: 12px;
-      font-family: inherit;
-      background: white;
-      outline: none;
+      width: 100%; padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px;
+      font-size: 12px; font-family: inherit; background: white; outline: none;
     }
     input[type=text]:focus, textarea:focus, select:focus { border-color: #2c5f8a; }
     textarea { resize: vertical; min-height: 60px; }
-    .btn {
-      display: inline-block;
-      padding: 6px 14px;
-      border-radius: 4px;
-      border: 1px solid #9ab5c8;
-      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
-      color: #1a2a38;
-      font-size: 12px;
-      font-family: inherit;
-      cursor: pointer;
-      font-weight: 500;
-      margin-top: 12px;
+
+    @mixin pseudo-positioning {
+      content: ''; position: absolute; left: 50%; transform: translateX(-50%); height: 33%;
+    }
+    .btn-wrap {
+      display: inline-block; width: 220px; height: 29px; position: relative;
+      vertical-align: middle; margin-top: 12px; overflow: visible;
+      &.sm { width: 130px; height: 26px; margin-top: 0; overflow: visible; }
+    }
+    button {
+      display: block; isolation: isolate; font-size: 1rem;
+      font-family: "myriad-pro", system-ui, sans-serif; height: 1.75em; padding: 0 2em;
+      min-width: 8em; border-radius: 1000px; position: absolute; top: 0; left: 0;
+      overflow: hidden; cursor: pointer; outline: none; border: none;
+      transform: scale(0.34); transform-origin: top left; line-height: 1.75em;
+      text-align: center; white-space: nowrap;
+      &::before {
+        @include pseudo-positioning;
+        background: linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.3));
+        width: calc(100% - 0.875em); border-radius: 2em 2em 0.5em 0.5em; top: 5%; filter: blur(1px); z-index: 2;
+      }
+      &::after {
+        @include pseudo-positioning;
+        background: linear-gradient(rgba(255,255,255,0.2), rgba(255,255,255,0.5));
+        width: calc(100% - 1.25em); border-radius: 0.75em; bottom: 10%; filter: blur(3px);
+      }
+      span { position: relative; top: -1px; z-index: 3; color: #000; font-weight: 400; letter-spacing: 0.0375em; -webkit-text-stroke-width: 0.025em; -webkit-text-stroke-color: #000; }
     }
     .btn-primary {
-      background: linear-gradient(180deg, #3a78b0 0%, #2c5f8a 100%);
-      color: white;
-      border-color: #1a4a70;
+      background: linear-gradient(rgba(0,65,184,0.625), rgba(45,115,199,0.625), rgba(33,160,196,0.625));
+      box-shadow: 0 0.2em 2em rgba(0,0,0,0.005), 0 0.125em 0.125em rgba(0,78,187,0.5), inset 0 0.25em 0.5em rgba(0,17,49,0.8), inset 0 0.375em 0.5em 0.25em rgba(0,78,187,0.75);
+      span { text-shadow: 0 0.25em 0.2em rgba(30,77,161,0.5); }
     }
     .btn-danger {
-      background: linear-gradient(180deg, #e07060 0%, #c05040 100%);
-      color: white;
-      border-color: #a03020;
-      margin-top: 0;
-      font-size: 11px;
-      padding: 3px 8px;
+      background: linear-gradient(rgba(184,0,0,0.625), rgba(199,45,45,0.625), rgba(160,20,20,0.625));
+      box-shadow: 0 0.2em 2em rgba(0,0,0,0.005), 0 0.125em 0.125em rgba(187,0,0,0.5), inset 0 0.25em 0.5em rgba(49,0,0,0.8), inset 0 0.375em 0.5em 0.25em rgba(187,0,0,0.75);
+      span { text-shadow: 0 0.25em 0.2em rgba(150,0,0,0.5); }
     }
+
     .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .status-msg {
-      font-size: 11px;
-      padding: 6px 10px;
-      border-radius: 4px;
-      margin-top: 8px;
-      display: none;
-    }
+    .status-msg { font-size: 11px; padding: 6px 10px; border-radius: 4px; margin-top: 8px; display: none; }
     .status-ok { background: #e8f5e8; color: #2a6a2a; border: 1px solid #b0d8b0; }
     .status-err { background: #fde8e8; color: #8a2a2a; border: 1px solid #f0b0b0; }
-    .asset-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-    .asset-table th {
-      text-align: left;
-      padding: 6px 8px;
-      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
-      color: #1a2a38;
-      font-weight: 500;
-      font-size: 11px;
-      border: 1px solid #9ab5c8;
-    }
-    .asset-table td {
-      padding: 6px 8px;
-      border: 1px solid #ddd;
-      vertical-align: middle;
-    }
-    .asset-table tr:nth-child(even) td { background: #f8f8f8; }
-    .thumb {
-      width: 32px;
-      height: 32px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #f0f0f0;
-      object-fit: contain;
-    }
-    .badge {
-      display: inline-block;
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 8px;
-      background: #e8eef8;
-      color: #3a5a80;
-      border: 1px solid #c0d0e4;
-      margin-right: 2px;
-    }
-    .upload-zone {
-      display: block;
-      border: 2px dashed #a0b8cc;
-      border-radius: 6px;
-      padding: 20px;
-      text-align: center;
-      color: #666;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background 0.1s;
-      margin-top: 4px;
-    }
+    .resource-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .resource-table th { text-align: left; padding: 6px 8px; background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%); color: #1a2a38; font-weight: 500; font-size: 11px; border: 1px solid #9ab5c8; }
+    .resource-table td { padding: 6px 8px; border: 1px solid #ddd; vertical-align: middle; overflow: visible; }
+    .resource-table tr:nth-child(even) td { background: #f8f8f8; }
+    .thumb { width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 4px; background: #f0f0f0; object-fit: contain; }
+    .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #e8eef8; color: #3a5a80; border: 1px solid #c0d0e4; margin-right: 2px; }
+    .upload-zone { display: block; border: 2px dashed #a0b8cc; border-radius: 6px; padding: 20px; text-align: center; color: #666; font-size: 12px; cursor: pointer; transition: background 0.1s; margin-top: 4px; }
     .upload-zone:hover, .upload-zone.dragover { background: #e8f0f8; border-color: #2c5f8a; }
-    .file-preview {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 10px;
-      text-align: left;
-    }
-    .file-chip {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11px;
-      padding: 4px 10px;
-      border-radius: 4px;
-      background: #e8eef8;
-      border: 1px solid #c0d0e4;
-      color: #3a5a80;
-      gap: 12px;
-    }
+    .file-preview { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; text-align: left; }
+    .file-chip { display: flex; align-items: center; justify-content: space-between; font-size: 11px; padding: 4px 10px; border-radius: 4px; background: #e8eef8; border: 1px solid #c0d0e4; color: #3a5a80; gap: 12px; }
     .file-chip-original { color: #888; font-style: italic; flex-shrink: 0; }
     .file-chip-arrow { color: #a0b8cc; flex-shrink: 0; }
     .file-chip-path { color: #2c5f8a; font-family: monospace; font-size: 10px; word-break: break-all; }
-    .checkbox-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 4px;
-    }
-    .checkbox-group label {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin: 0;
-      font-size: 12px;
-      color: #1a1a1a;
-      cursor: pointer;
-    }
-    .field-def-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-      margin-bottom: 8px;
-    }
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .checkbox-group label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-size: 12px; color: #1a1a1a; cursor: pointer; }
+    .field-def-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
     .field-def-row input { margin-top: 0; }
   </style>
 </head>
@@ -286,72 +168,49 @@ const categoryGroupMap: Record<string, string> = {
 <div class="layout">
   <div class="page-title">Editing: {osVersion.name}</div>
 
-  <!-- Add Asset -->
   <div class="card">
-    <div class="card-header">Add asset</div>
+    <div class="card-header">New resource</div>
     <div class="card-body">
-      <form id="add-asset-form">
+      <form id="add-resource-form">
         <input type="hidden" name="os_version_id" value={osVersion.id} />
-
         <div class="three-col">
-          <div>
-            <label>Asset name</label>
-            <input type="text" name="name" id="asset-name" placeholder="Finder" required />
-          </div>
+          <div><label>Name</label><input type="text" name="name" id="resource-name" required /></div>
           <div>
             <label>Category</label>
-            <select name="category_id" id="asset-category">
+            <select name="category_id" id="resource-category">
               <option value="">— none —</option>
-              {categories?.map(cat => (
-                <option value={cat.id} data-slug={cat.slug}>{cat.name}</option>
-              ))}
+              {categories?.map(cat => <option value={cat.id} data-slug={cat.slug}>{cat.name}</option>)}
             </select>
           </div>
-          <div>
-            <label>Version string</label>
-            <input type="text" name="version_string" id="asset-version" placeholder="10.4.3" />
-          </div>
+          <div><label>Version</label><input type="text" name="version_string" id="resource-version" /></div>
         </div>
-
         <div class="two-col">
-          <div>
-            <label>Source path</label>
-            <input type="text" name="source_path" placeholder="/System/Library/CoreServices/" />
-          </div>
-          <div>
-            <label>Notes</label>
-            <input type="text" name="notes" placeholder="Optional notes" />
-          </div>
+          <div><label>Source path</label><input type="text" name="source_path" /></div>
+          <div><label>Notes</label><input type="text" name="notes" /></div>
         </div>
-
         <label>Labels</label>
         <div class="checkbox-group" id="label-checkboxes">
           {labels?.map(label => (
-            <label>
-              <input type="checkbox" name="labels" value={label.id} />
-              {label.name}
-            </label>
+            <label><input type="checkbox" name="labels" value={label.id} />{label.name}</label>
           ))}
         </div>
-
         <label style="margin-top:14px;">Upload files</label>
         <input type="file" id="file-input" multiple accept=".png,.icns,.tiff,.svg,.jpg,.aiff,.wav,.mp3" style="display:none;" />
         <label class="upload-zone" for="file-input" id="upload-zone">
-          <div id="upload-prompt">Click or drag files here (.png, .icns, .tiff, .svg, .aiff)</div>
           <div class="file-preview" id="file-preview"></div>
         </label>
-
-        <div id="asset-status" class="status-msg"></div>
-        <button type="submit" class="btn btn-primary">Add asset &amp; upload files</button>
+        <div id="resource-status" class="status-msg"></div>
+        <span class="btn-wrap">
+          <button type="submit" class="btn-primary"><span>Upload</span></button>
+        </span>
       </form>
     </div>
   </div>
 
-  <!-- Custom field definitions -->
   <div class="card">
     <div class="card-header">
       Custom columns for this OS version
-      <span style="font-size:11px;font-weight:400;color:#666;">These appear as extra columns in the asset table</span>
+      <span style="font-size:11px;font-weight:400;color:#666;">These appear as extra columns in the resource table</span>
     </div>
     <div class="card-body">
       <div id="field-def-list">
@@ -361,23 +220,19 @@ const categoryGroupMap: Record<string, string> = {
               <div style="font-size:12px;font-weight:500;">{f.display_label}</div>
               <div style="font-size:11px;color:#666;">key: {f.field_key} · type: {f.field_type}</div>
             </div>
-            <button class="btn btn-danger delete-field" data-id={f.id}>Remove</button>
+            <span class="btn-wrap sm">
+              <button class="btn-danger delete-field" data-id={f.id}><span>Remove</span></button>
+            </span>
           </div>
         ))}
         {(!fieldDefs || fieldDefs.length === 0) && (
-          <p style="font-size:12px;color:#666;font-style:italic;margin-bottom:10px;">No custom columns yet.</p>
+          <p style="font-size:12px;color:#666;font-style:italic;margin-bottom:10px;">No custom columns.</p>
         )}
       </div>
       <form id="add-field-form" style="margin-top:10px;">
         <div class="three-col">
-          <div>
-            <label>Display label</label>
-            <input type="text" name="display_label" placeholder="Pixel grid" />
-          </div>
-          <div>
-            <label>Field key</label>
-            <input type="text" name="field_key" placeholder="pixel_grid" />
-          </div>
+          <div><label>Display label</label><input type="text" name="display_label" placeholder="Pixel grid" /></div>
+          <div><label>Field key</label><input type="text" name="field_key" placeholder="pixel_grid" /></div>
           <div>
             <label>Type</label>
             <select name="field_type">
@@ -389,20 +244,21 @@ const categoryGroupMap: Record<string, string> = {
           </div>
         </div>
         <div id="field-status" class="status-msg"></div>
-        <button type="submit" class="btn btn-primary">Add column</button>
+        <span class="btn-wrap">
+          <button type="submit" class="btn-primary"><span>Add</span></button>
+        </span>
       </form>
     </div>
   </div>
 
-  <!-- Asset list -->
   <div class="card">
     <div class="card-header">
-      Assets ({assets?.length ?? 0})
+      Resources ({resources?.length ?? 0})
       <a href={`/os/${osVersion.slug}`} style="font-size:11px;font-weight:400;color:#2c5f8a;">View page →</a>
     </div>
     <div class="card-body" style="padding:0;">
-      {assets && assets.length > 0 ? (
-        <table class="asset-table">
+      {resources && resources.length > 0 ? (
+        <table class="resource-table">
           <thead>
             <tr>
               <th style="width:40px;"></th>
@@ -410,27 +266,24 @@ const categoryGroupMap: Record<string, string> = {
               <th>Category</th>
               <th>Files</th>
               <th>Labels</th>
-              <th style="width:60px;"></th>
+              <th style="width:110px;"></th>
             </tr>
           </thead>
-          <tbody id="asset-tbody">
-            {assets.map(asset => {
-              const thumbnail = asset.asset_files?.find((f: any) => f.filetype === 'png') || asset.asset_files?.[0];
-              const labels = asset.asset_labels?.map((al: any) => al.labels) ?? [];
+          <tbody id="resource-tbody">
+            {resources.map(resource => {
+              const thumbnail = resource.resource_files?.find((f: any) => f.filetype === 'png') || resource.resource_files?.[0];
+              const resourceLabels = resource.resource_labels?.map((rl: any) => rl.labels) ?? [];
               return (
-                <tr data-asset-id={asset.id}>
+                <tr data-resource-id={resource.id}>
+                  <td>{thumbnail ? <img class="thumb" src={thumbnail.storage_url} alt={resource.name} /> : <div class="thumb"></div>}</td>
+                  <td style="font-weight:500;">{resource.name}</td>
+                  <td>{resource.categories?.name ?? '—'}</td>
+                  <td>{resource.resource_files?.map((f: any) => <span class="badge">.{f.filetype}</span>)}</td>
+                  <td>{resourceLabels.map((l: any) => <span class="badge">{l?.name}</span>)}</td>
                   <td>
-                    {thumbnail
-                      ? <img class="thumb" src={thumbnail.storage_url} alt={asset.name} />
-                      : <div class="thumb"></div>
-                    }
-                  </td>
-                  <td style="font-weight:500;">{asset.name}</td>
-                  <td>{asset.categories?.name ?? '—'}</td>
-                  <td>{asset.asset_files?.map((f: any) => <span class="badge">.{f.filetype}</span>)}</td>
-                  <td>{labels.map((l: any) => <span class="badge">{l?.name}</span>)}</td>
-                  <td>
-                    <button class="btn btn-danger delete-asset" data-id={asset.id}>Delete</button>
+                    <span class="btn-wrap sm">
+                      <button class="btn-danger delete-resource" data-id={resource.id}><span>Delete</span></button>
+                    </span>
                   </td>
                 </tr>
               );
@@ -438,14 +291,13 @@ const categoryGroupMap: Record<string, string> = {
           </tbody>
         </table>
       ) : (
-        <p style="padding:20px;color:#666;font-style:italic;font-size:12px;">No assets yet.</p>
+        <p style="padding:20px;color:#666;font-style:italic;font-size:12px;">No resources.</p>
       )}
     </div>
   </div>
-
 </div>
 
-<script define:vars={{ osVersionId: osVersion.id, osVersionSlug: osVersion.slug, pathName: osVersion.path_name ?? osVersion.slug, SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL, SUPABASE_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL, categoryGroupMap: categoryGroupMap }}>
+<script define:vars={{ osVersionId: osVersion.id, pathName: osVersion.path_name ?? osVersion.slug, R2_WORKER_URL: import.meta.env.PUBLIC_R2_WORKER_URL, categoryGroupMap, API_SECRET: Astro.locals.runtime?.env?.API_SECRET ?? import.meta.env.API_SECRET }}>
 
   function showStatus(id, msg, ok) {
     const el = document.getElementById(id);
@@ -455,24 +307,27 @@ const categoryGroupMap: Record<string, string> = {
     setTimeout(() => el.style.display = 'none', 4000);
   }
 
-  async function sbPost(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  async function apiPost(endpoint, data) {
+    return fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Prefer': 'return=representation'
-      },
+      headers: { 'Content-Type': 'application/json', 'x-api-secret': API_SECRET },
       body: JSON.stringify(data)
     });
-    return res;
   }
 
-  async function sbDelete(table, id) {
-    await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+  async function apiDelete(endpoint, id) {
+    return fetch(endpoint, {
       method: 'DELETE',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      headers: { 'Content-Type': 'application/json', 'x-api-secret': API_SECRET },
+      body: JSON.stringify({ id })
+    });
+  }
+
+  async function apiPatch(endpoint, data) {
+    return fetch(endpoint, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-api-secret': API_SECRET },
+      body: JSON.stringify(data)
     });
   }
 
@@ -488,32 +343,24 @@ const categoryGroupMap: Record<string, string> = {
       if (noImageTypes.includes(ext)) return resolve({ width: null, height: null });
       const url = URL.createObjectURL(file);
       const img = new Image();
-      img.onload = () => {
-        resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        URL.revokeObjectURL(url);
-      };
-      img.onerror = () => {
-        resolve({ width: null, height: null });
-        URL.revokeObjectURL(url);
-      };
+      img.onload = () => { resolve({ width: img.naturalWidth, height: img.naturalHeight }); URL.revokeObjectURL(url); };
+      img.onerror = () => { resolve({ width: null, height: null }); URL.revokeObjectURL(url); };
       img.src = url;
     });
   }
 
   function dimString(width, height) {
     if (!width || !height) return null;
-    if (width === height) return `${width}`;
-    return `${width}x${height}`;
+    return width === height ? `${width}` : `${width}x${height}`;
   }
 
-  function buildPath(file, assetName, categorySlug, versionString, dims) {
+  function buildPath(file, resourceName, categorySlug, versionString, dims) {
     const ext = file.name.split('.').pop().toLowerCase();
-    const assetSlug = slugify(assetName || 'Unknown');
+    const resourceSlug = slugify(resourceName || 'Unknown');
     const categoryGroup = categoryGroupMap[categorySlug] || 'Uncategorized';
     const version = versionString ? versionString.trim() : 'Unknown';
     const dimStr = dims ? `_${dims}` : '';
-    const filename = `${assetSlug}${dimStr}.${ext}`;
-    return `${pathName}/${categoryGroup}/${assetSlug}/${version}/${filename}`;
+    return `${pathName}/${categoryGroup}/${resourceSlug}/${version}/${resourceSlug}${dimStr}.${ext}`;
   }
 
   const zone = document.getElementById('upload-zone');
@@ -525,147 +372,102 @@ const categoryGroupMap: Record<string, string> = {
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
   zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.classList.remove('dragover');
-    selectedFiles = Array.from(e.dataTransfer.files);
-    processFiles();
+    e.preventDefault(); zone.classList.remove('dragover');
+    selectedFiles = Array.from(e.dataTransfer.files); processFiles();
   });
-  fileInput.addEventListener('change', () => {
-    selectedFiles = Array.from(fileInput.files);
-    processFiles();
-  });
+  fileInput.addEventListener('change', () => { selectedFiles = Array.from(fileInput.files); processFiles(); });
 
-  document.getElementById('asset-name').addEventListener('input', refreshPaths);
-  document.getElementById('asset-category').addEventListener('change', refreshPaths);
-  document.getElementById('asset-version').addEventListener('input', refreshPaths);
+  document.getElementById('resource-name').addEventListener('input', refreshPaths);
+  document.getElementById('resource-category').addEventListener('change', refreshPaths);
+  document.getElementById('resource-version').addEventListener('input', refreshPaths);
 
   async function processFiles() {
     fileMeta = [];
     for (const file of selectedFiles) {
       const { width, height } = await getImageDimensions(file);
-      const dims = dimString(width, height);
-      fileMeta.push({ file, width, height, dims });
+      fileMeta.push({ file, width, height, dims: dimString(width, height) });
     }
     refreshPaths();
   }
 
   function refreshPaths() {
-    const assetName = document.getElementById('asset-name').value;
-    const categorySelect = document.getElementById('asset-category');
+    const resourceName = document.getElementById('resource-name').value;
+    const categorySelect = document.getElementById('resource-category');
     const categorySlug = categorySelect.options[categorySelect.selectedIndex]?.dataset.slug || '';
-    const versionString = document.getElementById('asset-version').value;
-    fileMeta = fileMeta.map(m => ({
-      ...m,
-      path: buildPath(m.file, assetName, categorySlug, versionString, m.dims)
-    }));
+    const versionString = document.getElementById('resource-version').value;
+    fileMeta = fileMeta.map(m => ({ ...m, path: buildPath(m.file, resourceName, categorySlug, versionString, m.dims) }));
     renderPreview();
   }
 
   function renderPreview() {
     preview.innerHTML = '';
-    if (fileMeta.length === 0) {
-      document.getElementById('upload-prompt').style.display = 'block';
-      return;
-    }
-    document.getElementById('upload-prompt').style.display = 'none';
     fileMeta.forEach(m => {
       const chip = document.createElement('div');
       chip.className = 'file-chip';
-      chip.innerHTML = `
-        <span class="file-chip-original">${m.file.name}</span>
-        <span class="file-chip-arrow">→</span>
-        <span class="file-chip-path">${m.path}</span>
-      `;
+      chip.innerHTML = `<span class="file-chip-original">${m.file.name}</span><span class="file-chip-arrow">→</span><span class="file-chip-path">${m.path}</span>`;
       preview.appendChild(chip);
     });
   }
 
-  async function uploadFile(meta, assetId) {
+  async function uploadFile(meta, resourceId) {
     const ext = meta.file.name.split('.').pop().toLowerCase();
-    const isIcns = ext === 'icns';
-
     const res = await fetch(R2_WORKER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': meta.file.type || 'application/octet-stream',
         'X-File-Path': meta.path,
         'X-File-Name': meta.path.split('/').pop(),
-        'X-Unpack-Icns': isIcns ? 'true' : 'false'
+        'X-Unpack-Icns': ext === 'icns' ? 'true' : 'false'
       },
       body: meta.file
     });
     if (!res.ok) return null;
     const { url, extracted, dimensions } = await res.json();
 
-    // Store the original file record with dimensions
-    await sbPost('asset_files', {
-      asset_id: assetId,
-      filetype: ext,
+    await apiPost('/api/resource-files', {
+      resource_id: resourceId, filetype: ext,
       pixel_size: dimensions ? Math.max(dimensions.width, dimensions.height) : null,
-      pixel_width: dimensions?.width ?? null,
-      pixel_height: dimensions?.height ?? null,
-      storage_url: url,
-      file_bytes: meta.file.size
+      pixel_width: dimensions?.width ?? null, pixel_height: dimensions?.height ?? null,
+      storage_url: url, file_bytes: meta.file.size
     });
 
-    // Store each extracted PNG with its dimensions
-    if (extracted && extracted.length > 0) {
+    if (extracted?.length > 0) {
       for (const e of extracted) {
-        await sbPost('asset_files', {
-          asset_id: assetId,
-          filetype: 'png',
+        await apiPost('/api/resource-files', {
+          resource_id: resourceId, filetype: 'png',
           pixel_size: e.width && e.height ? Math.max(e.width, e.height) : null,
-          pixel_width: e.width ?? null,
-          pixel_height: e.height ?? null,
-          storage_url: e.url,
-          file_bytes: e.file_bytes
+          pixel_width: e.width ?? null, pixel_height: e.height ?? null,
+          storage_url: e.url, file_bytes: e.file_bytes
         });
       }
     }
-
     return url;
   }
 
-  document.getElementById('add-asset-form').addEventListener('submit', async (e) => {
+  document.getElementById('add-resource-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
     const fd = new FormData(form);
-
-    const data = {
+    showStatus('resource-status', 'Saving…', true);
+    const res = await apiPost('/api/resources', {
       os_version_id: osVersionId,
       name: fd.get('name'),
       category_id: fd.get('category_id') || null,
       version_string: fd.get('version_string') || null,
       source_path: fd.get('source_path') || null,
       notes: fd.get('notes') || null,
-    };
-
-    showStatus('asset-status', 'Saving…', true);
-    const res = await sbPost('assets', data);
-    if (!res.ok) {
-      showStatus('asset-status', 'Error creating asset', false);
-      return;
+    });
+    if (!res.ok) { showStatus('resource-status', 'Error creating resource', false); return; }
+    const [resource] = await res.json();
+    for (const labelId of fd.getAll('labels')) {
+      await apiPost('/api/resource-labels', { resource_id: resource.id, label_id: labelId });
     }
-    const [asset] = await res.json();
-
-    const selectedLabels = fd.getAll('labels');
-    for (const labelId of selectedLabels) {
-      await sbPost('asset_labels', { asset_id: asset.id, label_id: labelId });
-    }
-
     if (fileMeta.length > 0) {
-      showStatus('asset-status', `Uploading ${fileMeta.length} file(s)…`, true);
-      for (const meta of fileMeta) {
-        await uploadFile(meta, asset.id);
-      }
+      showStatus('resource-status', `Uploading ${fileMeta.length} file(s)…`, true);
+      for (const meta of fileMeta) await uploadFile(meta, resource.id);
     }
-
-    showStatus('asset-status', 'Asset added!', true);
-    form.reset();
-    selectedFiles = [];
-    fileMeta = [];
-    preview.innerHTML = '';
-    document.getElementById('upload-prompt').style.display = 'block';
+    showStatus('resource-status', 'Resource added!', true);
+    form.reset(); selectedFiles = []; fileMeta = []; preview.innerHTML = '';
     setTimeout(() => location.reload(), 1500);
   });
 
@@ -673,35 +475,29 @@ const categoryGroupMap: Record<string, string> = {
     e.preventDefault();
     const form = e.target;
     const fd = new FormData(form);
-    const res = await sbPost('field_definitions', {
+    const res = await apiPost('/api/field-definitions', {
       os_version_id: osVersionId,
       display_label: fd.get('display_label'),
       field_key: fd.get('field_key'),
       field_type: fd.get('field_type'),
-      show_in_table: true,
-      sort_order: 0
+      show_in_table: true, sort_order: 0
     });
-    if (res.ok) {
-      showStatus('field-status', 'Column added!', true);
-      form.reset();
-      setTimeout(() => location.reload(), 800);
-    } else {
-      showStatus('field-status', 'Error adding column', false);
-    }
+    if (res.ok) { showStatus('field-status', 'Column added!', true); form.reset(); setTimeout(() => location.reload(), 800); }
+    else { showStatus('field-status', 'Error adding column', false); }
   });
 
   document.querySelectorAll('.delete-field').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Remove this column?')) return;
-      await sbDelete('field_definitions', btn.dataset.id);
+      await apiDelete('/api/field-definitions', btn.dataset.id);
       btn.closest('.field-def-row').remove();
     });
   });
 
-  document.querySelectorAll('.delete-asset').forEach(btn => {
+  document.querySelectorAll('.delete-resource').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Delete this asset and all its files?')) return;
-      await sbDelete('assets', btn.dataset.id);
+      if (!confirm('Delete this resource and all of its files?')) return;
+      await apiDelete('/api/resources', btn.dataset.id);
       btn.closest('tr').remove();
     });
   });

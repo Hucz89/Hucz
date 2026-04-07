@@ -12,14 +12,14 @@ const { data: osVersion } = await supabase
 
 if (!osVersion) return Astro.redirect('/404');
 
-const { data: assets } = await supabase
-  .from('assets')
+const { data: resources } = await supabase
+  .from('resources')
   .select(`
     *,
     categories(name),
-    asset_files(*),
-    asset_labels(label_id, labels(name, color_hex)),
-    asset_field_values(value, field_definitions(field_key, display_label, sort_order))
+    resource_files(*),
+    resource_labels(label_id, labels(name, color_hex)),
+    resource_field_values(value, field_definitions(field_key, display_label, sort_order))
   `)
   .eq('os_version_id', osVersion.id)
   .order('name');
@@ -81,356 +81,67 @@ function selectLightboxImage(files: any[]) {
   <title>{osVersion.name} — OSArchive</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Lucida Grande', Tahoma, sans-serif;
-      font-size: 13px;
-      color: #1a1a1a;
-      background: #f0f0f0;
-    }
-    .site-header {
-      background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%);
-      border-bottom: 1px solid #5a7a96;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      height: 44px;
-      gap: 16px;
-    }
-    .site-logo {
-      font-family: Georgia, serif;
-      font-size: 18px;
-      font-weight: bold;
-      color: #1a2a38;
-      text-decoration: none;
-    }
+    body { font-family: 'Lucida Grande', Tahoma, sans-serif; font-size: 13px; color: #1a1a1a; background: #f0f0f0; }
+    .site-header { background: linear-gradient(180deg, #c8d8e8 0%, #a0b8cc 40%, #7a9ab5 100%); border-bottom: 1px solid #5a7a96; padding: 0 20px; display: flex; align-items: center; height: 44px; gap: 16px; }
+    .site-logo { font-family: Georgia, serif; font-size: 18px; font-weight: bold; color: #1a2a38; text-decoration: none; }
     .site-logo span { color: #2c5f8a; }
-    .search-bar {
-      flex: 1;
-      max-width: 340px;
-      display: flex;
-      align-items: center;
-      background: rgba(255,255,255,0.72);
-      border: 1px solid #7a9ab5;
-      border-radius: 12px;
-      padding: 0 10px;
-      height: 26px;
-      gap: 6px;
-    }
-    .search-bar input {
-      border: none;
-      background: transparent;
-      outline: none;
-      font-size: 12px;
-      width: 100%;
-      font-family: inherit;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: 180px 1fr 180px;
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 16px;
-      gap: 0;
-      align-items: start;
-    }
-    .sidebar-left {
-      padding-right: 16px;
-      border-right: 1px solid #ccc;
-    }
-    .sidebar-label {
-      font-size: 10px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #666;
-      margin-bottom: 6px;
-      padding-bottom: 4px;
-      border-bottom: 1px solid #ddd;
-      margin-top: 14px;
-    }
+    .search-bar { flex: 1; max-width: 340px; display: flex; align-items: center; background: rgba(255,255,255,0.72); border: 1px solid #7a9ab5; border-radius: 12px; padding: 0 10px; height: 26px; gap: 6px; }
+    .search-bar input { border: none; background: transparent; outline: none; font-size: 12px; width: 100%; font-family: inherit; }
+    .layout { display: grid; grid-template-columns: 180px 1fr 180px; max-width: 1000px; margin: 0 auto; padding: 16px; gap: 0; align-items: start; }
+    .sidebar-left { padding-right: 16px; border-right: 1px solid #ccc; }
+    .sidebar-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #ddd; margin-top: 14px; }
     .sidebar-label:first-child { margin-top: 0; }
-    .sidebar-link {
-      display: block;
-      font-size: 12px;
-      color: #2c5f8a;
-      padding: 3px 0;
-      text-decoration: none;
-    }
+    .sidebar-link { display: block; font-size: 12px; color: #2c5f8a; padding: 3px 0; text-decoration: none; }
     .sidebar-link:hover { text-decoration: underline; }
-    .sidebar-link.active {
-      color: #1a1a1a;
-      font-weight: 500;
-    }
+    .sidebar-link.active { color: #1a1a1a; font-weight: 500; }
     .main-content { padding: 0 20px; }
-    .breadcrumb {
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 10px;
-    }
+    .breadcrumb { font-size: 11px; color: #666; margin-bottom: 10px; }
     .breadcrumb a { color: #2c5f8a; text-decoration: none; }
     .breadcrumb a:hover { text-decoration: underline; }
-    .page-title {
-      font-family: Georgia, serif;
-      font-size: 26px;
-      font-weight: bold;
-      border-bottom: 2px solid #a0b8cc;
-      padding-bottom: 8px;
-      margin-bottom: 4px;
-    }
-    .page-subtitle {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 14px;
-      font-style: italic;
-    }
-    .section-heading {
-      font-family: Georgia, serif;
-      font-size: 17px;
-      font-weight: bold;
-      border-bottom: 1px solid #a0b8cc;
-      padding-bottom: 4px;
-      margin: 18px 0 10px;
-    }
-    .filter-bar {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-    }
+    .page-title { font-family: Georgia, serif; font-size: 26px; font-weight: bold; border-bottom: 2px solid #a0b8cc; padding-bottom: 8px; margin-bottom: 4px; }
+    .page-subtitle { font-size: 12px; color: #666; margin-bottom: 14px; font-style: italic; }
+    .section-heading { font-family: Georgia, serif; font-size: 17px; font-weight: bold; border-bottom: 1px solid #a0b8cc; padding-bottom: 4px; margin: 18px 0 10px; }
+    .filter-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
     .filter-label { font-size: 11px; color: #666; }
-    .filter-btn {
-      font-size: 11px;
-      padding: 3px 10px;
-      border-radius: 10px;
-      border: 1px solid #a0b8cc;
-      background: #f0f4f8;
-      color: #1a1a1a;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .filter-btn.active, .filter-btn:hover {
-      background: #2c5f8a;
-      color: #fff;
-      border-color: #2c5f8a;
-    }
-    .filter-input {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 10px;
-      border: 1px solid #a0b8cc;
-      background: #fff;
-      outline: none;
-      font-family: inherit;
-      width: 160px;
-      margin-left: auto;
-    }
-    .asset-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      margin-bottom: 12px;
-    }
-    .asset-table th {
-      text-align: left;
-      padding: 6px 8px;
-      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
-      color: #1a2a38;
-      font-weight: 500;
-      font-size: 11px;
-      border: 1px solid #9ab5c8;
-    }
-    .asset-table td {
-      padding: 6px 8px;
-      border: 1px solid #ddd;
-      vertical-align: middle;
-    }
-    .asset-table tr:nth-child(even) td { background: #f8f8f8; }
-    .asset-table tr:hover td { background: #e8f0f8; }
-    .thumb-cell {
-      width: 72px;
-      min-width: 72px;
-      max-width: 72px;
-      padding: 4px 4px !important;
-      text-align: center;
-      vertical-align: middle;
-    }
-    .thumb-wrap {
-      width: 64px;
-      height: 64px;
-      overflow: hidden;
-      position: relative;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      cursor: pointer;
-      margin: 0 auto;
-    }
-    .thumb-wrap::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 20px;
-      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.95));
-      pointer-events: none;
-    }
+    .filter-btn { font-size: 11px; padding: 3px 10px; border-radius: 10px; border: 1px solid #a0b8cc; background: #f0f4f8; color: #1a1a1a; cursor: pointer; font-family: inherit; }
+    .filter-btn.active, .filter-btn:hover { background: #2c5f8a; color: #fff; border-color: #2c5f8a; }
+    .filter-input { font-size: 11px; padding: 3px 8px; border-radius: 10px; border: 1px solid #a0b8cc; background: #fff; outline: none; font-family: inherit; width: 160px; margin-left: auto; }
+    .resource-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+    .resource-table th { text-align: left; padding: 6px 8px; background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%); color: #1a2a38; font-weight: 500; font-size: 11px; border: 1px solid #9ab5c8; }
+    .resource-table td { padding: 6px 8px; border: 1px solid #ddd; vertical-align: middle; }
+    .resource-table tr:nth-child(even) td { background: #f8f8f8; }
+    .resource-table tr:hover td { background: #e8f0f8; }
+    .thumb-cell { width: 72px; min-width: 72px; max-width: 72px; padding: 4px 4px !important; text-align: center; vertical-align: middle; }
+    .thumb-wrap { width: 64px; height: 64px; overflow: hidden; position: relative; display: flex; align-items: flex-start; justify-content: center; cursor: pointer; margin: 0 auto; }
+    .thumb-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 20px; background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.95)); pointer-events: none; }
     .thumb-wrap.no-fade::after { display: none; }
-    .asset-table tr:nth-child(even) .thumb-wrap::after {
-      background: linear-gradient(to bottom, transparent, rgba(248,248,248,0.95));
-    }
-    .asset-table tr:hover .thumb-wrap::after {
-      background: linear-gradient(to bottom, transparent, rgba(232,240,248,0.95));
-    }
-    .thumb-img {
-      display: block;
-      max-width: 64px;
-      height: auto;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .asset-name { color: #2c5f8a; cursor: pointer; font-weight: 500; }
-    .asset-name:hover { text-decoration: underline; }
-    .badge {
-      display: inline-block;
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 8px;
-      font-weight: 500;
-      margin-right: 2px;
-      background: #e8eef8;
-      color: #3a5a80;
-      border: 1px solid #c0d0e4;
-    }
-    .size-pill {
-      display: inline-block;
-      font-size: 10px;
-      padding: 1px 5px;
-      border-radius: 4px;
-      background: #f0f0f0;
-      border: 1px solid #ddd;
-      color: #666;
-      margin-right: 2px;
-      font-family: monospace;
-    }
-    .infobox {
-      background: #f8f8f8;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 10px 12px;
-      font-size: 12px;
-      margin-left: 16px;
-      border-left: 1px solid #ccc;
-    }
-    .infobox-title {
-      font-weight: 500;
-      font-size: 12px;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid #ddd;
-      text-align: center;
-    }
-    .infobox-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      border-bottom: 1px solid #eee;
-      gap: 8px;
-    }
+    .resource-table tr:nth-child(even) .thumb-wrap::after { background: linear-gradient(to bottom, transparent, rgba(248,248,248,0.95)); }
+    .resource-table tr:hover .thumb-wrap::after { background: linear-gradient(to bottom, transparent, rgba(232,240,248,0.95)); }
+    .thumb-img { display: block; max-width: 64px; height: auto; cursor: pointer; flex-shrink: 0; }
+    .resource-name { color: #2c5f8a; cursor: pointer; font-weight: 500; }
+    .resource-name:hover { text-decoration: underline; }
+    .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 500; margin-right: 2px; background: #e8eef8; color: #3a5a80; border: 1px solid #c0d0e4; }
+    .size-pill { display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #f0f0f0; border: 1px solid #ddd; color: #666; margin-right: 2px; font-family: monospace; }
+    .infobox { background: #f8f8f8; border: 1px solid #ddd; border-radius: 4px; padding: 10px 12px; font-size: 12px; margin-left: 16px; border-left: 1px solid #ccc; }
+    .infobox-title { font-weight: 500; font-size: 12px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd; text-align: center; }
+    .infobox-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; gap: 8px; }
     .infobox-row:last-child { border-bottom: none; }
     .infobox-key { color: #666; font-size: 11px; flex-shrink: 0; }
     .infobox-val { color: #1a1a1a; font-size: 11px; text-align: right; }
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: #666;
-      font-style: italic;
-    }
-    .lightbox {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
+    .empty-state { text-align: center; padding: 40px; color: #666; font-style: italic; }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
     .lightbox.open { display: flex; }
-    .lightbox-inner {
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      max-width: 560px;
-      width: 90%;
-      position: relative;
-    }
-    .lightbox-close {
-      position: absolute;
-      top: 10px;
-      right: 14px;
-      font-size: 20px;
-      cursor: pointer;
-      color: #666;
-      background: none;
-      border: none;
-      line-height: 1;
-    }
+    .lightbox-inner { background: white; border-radius: 8px; padding: 20px; max-width: 560px; width: 90%; position: relative; }
+    .lightbox-close { position: absolute; top: 10px; right: 14px; font-size: 20px; cursor: pointer; color: #666; background: none; border: none; line-height: 1; }
     .lightbox-close:hover { color: #1a1a1a; }
-    .lightbox-img-wrap {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 14px;
-      min-height: 64px;
-    }
-    .lightbox-img {
-      display: block;
-      max-width: 512px;
-      max-height: 512px;
-      width: auto;
-      height: auto;
-    }
-    .lightbox-name {
-      font-family: Georgia, serif;
-      font-size: 16px;
-      font-weight: bold;
-      text-align: center;
-      margin-bottom: 4px;
-    }
-    .lightbox-meta {
-      font-size: 11px;
-      color: #666;
-      text-align: center;
-      margin-bottom: 14px;
-    }
-    .lightbox-files {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .lightbox-file {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 10px;
-      background: #f0f4f8;
-      border: 1px solid #d0d8e4;
-      border-radius: 4px;
-      font-size: 12px;
-    }
+    .lightbox-img-wrap { display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; min-height: 64px; }
+    .lightbox-img { display: block; max-width: 512px; max-height: 512px; width: auto; height: auto; }
+    .lightbox-name { font-family: Georgia, serif; font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 4px; }
+    .lightbox-meta { font-size: 11px; color: #666; text-align: center; margin-bottom: 14px; }
+    .lightbox-files { display: flex; flex-direction: column; gap: 6px; }
+    .lightbox-file { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #f0f4f8; border: 1px solid #d0d8e4; border-radius: 4px; font-size: 12px; }
     .lightbox-file-info { color: #666; }
-    .lightbox-download {
-      font-size: 11px;
-      padding: 3px 10px;
-      border-radius: 4px;
-      border: 1px solid #9ab5c8;
-      background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%);
-      color: #1a2a38;
-      text-decoration: none;
-      font-family: inherit;
-      cursor: pointer;
-    }
+    .lightbox-download { font-size: 11px; padding: 3px 10px; border-radius: 4px; border: 1px solid #9ab5c8; background: linear-gradient(180deg, #d4e4f0 0%, #b8cede 100%); color: #1a2a38; text-decoration: none; font-family: inherit; cursor: pointer; }
     .lightbox-download:hover { background: linear-gradient(180deg, #c0d8ec 0%, #a4c2d4 100%); }
   </style>
 </head>
@@ -444,7 +155,7 @@ function selectLightboxImage(files: any[]) {
       <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#1a2a38" stroke-width="1.5" stroke-linecap="round"/>
     </svg>
     <form action="/search" method="get" style="width:100%">
-      <input type="text" name="q" placeholder="Search icons, UI assets, OS versions…" />
+      <input type="text" name="q" placeholder="Search resources, UI assets, OS versions…" />
     </form>
   </div>
 </header>
@@ -467,15 +178,11 @@ function selectLightboxImage(files: any[]) {
     <div class="breadcrumb">
       <a href="/">Home</a> › <a href="/#browse">{osVersion.platform}</a> › {osVersion.name}
     </div>
-
     <h1 class="page-title">{osVersion.name}</h1>
-    <p class="page-subtitle">
-      Icon &amp; UI asset archive — {assets?.length ?? 0} assets
-    </p>
-
+    <p class="page-subtitle">UI resource archive — {resources?.length ?? 0} resources</p>
     {osVersion.description && <p style="margin-bottom: 14px; line-height: 1.65;">{osVersion.description}</p>}
 
-    <h2 class="section-heading">Assets</h2>
+    <h2 class="section-heading">Resources</h2>
 
     <div class="filter-bar" id="filter-bar">
       <span class="filter-label">Category:</span>
@@ -486,8 +193,8 @@ function selectLightboxImage(files: any[]) {
       <input class="filter-input" type="text" id="name-filter" placeholder="Filter by name…" />
     </div>
 
-    {assets && assets.length > 0 ? (
-      <table class="asset-table" id="asset-table">
+    {resources && resources.length > 0 ? (
+      <table class="resource-table" id="resource-table">
         <thead>
           <tr>
             <th class="thumb-cell"></th>
@@ -501,33 +208,31 @@ function selectLightboxImage(files: any[]) {
           </tr>
         </thead>
         <tbody>
-          {assets.map(asset => {
-            const filetypes = [...new Set(asset.asset_files?.map((f: any) => f.filetype))];
-            const sizes = [...new Set(asset.asset_files?.map((f: any) => f.pixel_size).filter(Boolean))].sort((a: number, b: number) => b - a);
-            const labels = asset.asset_labels?.map((al: any) => al.labels) ?? [];
+          {resources.map(resource => {
+            const filetypes = [...new Set(resource.resource_files?.map((f: any) => f.filetype))];
+            const sizes = [...new Set(resource.resource_files?.map((f: any) => f.pixel_size).filter(Boolean))].sort((a: number, b: number) => b - a);
+            const resourceLabels = resource.resource_labels?.map((rl: any) => rl.labels) ?? [];
             const fieldValues = Object.fromEntries(
-              asset.asset_field_values?.map((fv: any) => [fv.field_definitions?.field_key, fv.value]) ?? []
+              resource.resource_field_values?.map((fv: any) => [fv.field_definitions?.field_key, fv.value]) ?? []
             );
-
-            const thumbnail = selectThumbnail(asset.asset_files ?? []);
+            const thumbnail = selectThumbnail(resource.resource_files ?? []);
             const thumbNativeWidth = thumbnail?.pixel_width ?? thumbnail?.pixel_size ?? 0;
             const thumbNativeHeight = thumbnail?.pixel_height ?? thumbnail?.pixel_size ?? 0;
             const displayWidth = thumbNativeWidth > 0 ? Math.min(thumbNativeWidth, 64) : 64;
             const displayHeight = thumbNativeWidth > 0 ? Math.round(thumbNativeHeight * (displayWidth / thumbNativeWidth)) : thumbNativeHeight;
             const showNative = thumbNativeWidth > 0 && thumbNativeWidth < 64;
             const applyFade = displayHeight > 64;
-
-            const lightboxFile = selectLightboxImage(asset.asset_files ?? []);
+            const lightboxFile = selectLightboxImage(resource.resource_files ?? []);
 
             return (
               <tr
-                data-category={asset.categories?.name?.toLowerCase().replace(/\s+/g, '-') ?? ''}
-                data-name={asset.name.toLowerCase()}
-                data-asset={JSON.stringify({
-                  name: asset.name,
-                  category: asset.categories?.name,
-                  version: asset.version_string,
-                  files: asset.asset_files,
+                data-category={resource.categories?.name?.toLowerCase().replace(/\s+/g, '-') ?? ''}
+                data-name={resource.name.toLowerCase()}
+                data-resource={JSON.stringify({
+                  name: resource.name,
+                  category: resource.categories?.name,
+                  version: resource.version_string,
+                  files: resource.resource_files,
                   lightboxUrl: lightboxFile?.storage_url ?? '',
                   lightboxSize: lightboxFile?.pixel_size ?? 0,
                 })}
@@ -535,39 +240,32 @@ function selectLightboxImage(files: any[]) {
                 <td class="thumb-cell">
                   {thumbnail ? (
                     <div class={`thumb-wrap${applyFade ? '' : ' no-fade'}`} style={`width:${showNative ? thumbNativeWidth : 64}px;`}>
-                      <img
-                        class="thumb-img"
-                        src={thumbnail.storage_url}
-                        alt={asset.name}
-                        style={`max-width:${displayWidth}px;`}
-                      />
+                      <img class="thumb-img" src={thumbnail.storage_url} alt={resource.name} style={`max-width:${displayWidth}px;`} />
                     </div>
                   ) : (
                     <div style="width:64px;height:64px;"></div>
                   )}
                 </td>
-                <td><span class="asset-name">{asset.name}</span></td>
-                <td>{asset.categories?.name ?? '—'}</td>
+                <td><span class="resource-name">{resource.name}</span></td>
+                <td>{resource.categories?.name ?? '—'}</td>
                 <td>{filetypes.map((ft: string) => <span class="badge">.{ft}</span>)}</td>
                 <td>{sizes.map((s: number) => <span class="size-pill">{s}</span>)}</td>
-                <td>{asset.version_string ?? '—'}</td>
+                <td>{resource.version_string ?? '—'}</td>
                 {fieldDefs?.map(f => <td>{fieldValues[f.field_key] ?? '—'}</td>)}
-                <td>{labels.map((l: any) => <span class="badge">{l?.name}</span>)}</td>
+                <td>{resourceLabels.map((l: any) => <span class="badge">{l?.name}</span>)}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
     ) : (
-      <div class="empty-state">No assets yet. Add some from the admin panel.</div>
+      <div class="empty-state">No resources yet. Add some from the admin panel.</div>
     )}
   </div>
 
   <div class="infobox">
     <div class="infobox-title">{osVersion.name}</div>
-    {osVersion.screenshot_url && (
-      <img src={osVersion.screenshot_url} alt={osVersion.name} style="width:100%;border-radius:4px;margin-bottom:8px;" />
-    )}
+    {osVersion.screenshot_url && <img src={osVersion.screenshot_url} alt={osVersion.name} style="width:100%;border-radius:4px;margin-bottom:8px;" />}
     {osVersion.released_at && (
       <div class="infobox-row">
         <span class="infobox-key">Released</span>
@@ -575,35 +273,20 @@ function selectLightboxImage(files: any[]) {
       </div>
     )}
     {osVersion.kernel_version && (
-      <div class="infobox-row">
-        <span class="infobox-key">Kernel</span>
-        <span class="infobox-val">{osVersion.kernel_version}</span>
-      </div>
+      <div class="infobox-row"><span class="infobox-key">Kernel</span><span class="infobox-val">{osVersion.kernel_version}</span></div>
     )}
     {osVersion.icon_style && (
-      <div class="infobox-row">
-        <span class="infobox-key">Icon style</span>
-        <span class="infobox-val">{osVersion.icon_style}</span>
-      </div>
+      <div class="infobox-row"><span class="infobox-key">Icon style</span><span class="infobox-val">{osVersion.icon_style}</span></div>
     )}
-    <div class="infobox-row">
-      <span class="infobox-key">Assets</span>
-      <span class="infobox-val">{assets?.length ?? 0}</span>
-    </div>
-    <div class="infobox-row">
-      <span class="infobox-key">Platform</span>
-      <span class="infobox-val">{osVersion.platform}</span>
-    </div>
+    <div class="infobox-row"><span class="infobox-key">Resources</span><span class="infobox-val">{resources?.length ?? 0}</span></div>
+    <div class="infobox-row"><span class="infobox-key">Platform</span><span class="infobox-val">{osVersion.platform}</span></div>
   </div>
 </div>
 
-<!-- Lightbox -->
 <div class="lightbox" id="lightbox">
   <div class="lightbox-inner">
     <button class="lightbox-close" id="lightbox-close">×</button>
-    <div class="lightbox-img-wrap">
-      <img class="lightbox-img" id="lightbox-img" src="" alt="" />
-    </div>
+    <div class="lightbox-img-wrap"><img class="lightbox-img" id="lightbox-img" src="" alt="" /></div>
     <div class="lightbox-name" id="lightbox-name"></div>
     <div class="lightbox-meta" id="lightbox-meta"></div>
     <div class="lightbox-files" id="lightbox-files"></div>
@@ -613,7 +296,7 @@ function selectLightboxImage(files: any[]) {
 <script>
   const filterBtns = document.querySelectorAll('.filter-btn');
   const nameFilter = document.getElementById('name-filter') as HTMLInputElement;
-  const rows = document.querySelectorAll('#asset-table tbody tr');
+  const rows = document.querySelectorAll('#resource-table tbody tr');
   const lightbox = document.getElementById('lightbox')!;
   const lightboxClose = document.getElementById('lightbox-close')!;
 
@@ -646,16 +329,13 @@ function selectLightboxImage(files: any[]) {
   });
 
   function openLightbox(row: HTMLElement) {
-    const data = JSON.parse(row.dataset.asset ?? '{}');
+    const data = JSON.parse(row.dataset.resource ?? '{}');
     const files = data.files ?? [];
-
     const img = document.getElementById('lightbox-img') as HTMLImageElement;
     img.src = data.lightboxUrl ?? '';
     img.alt = data.name;
-
     document.getElementById('lightbox-name')!.textContent = data.name;
     document.getElementById('lightbox-meta')!.textContent = [data.category, data.version].filter(Boolean).join(' · ');
-
     const fileList = document.getElementById('lightbox-files')!;
     fileList.innerHTML = '';
     files.forEach((f: any) => {
@@ -667,20 +347,17 @@ function selectLightboxImage(files: any[]) {
       `;
       fileList.appendChild(item);
     });
-
     lightbox.classList.add('open');
   }
 
   rows.forEach(row => {
     const el = row as HTMLElement;
     el.querySelector('.thumb-wrap')?.addEventListener('click', () => openLightbox(el));
-    el.querySelector('.asset-name')?.addEventListener('click', () => openLightbox(el));
+    el.querySelector('.resource-name')?.addEventListener('click', () => openLightbox(el));
   });
 
   lightboxClose.addEventListener('click', () => lightbox.classList.remove('open'));
-  lightbox.addEventListener('click', (e) => {
-    if (e.target === lightbox) lightbox.classList.remove('open');
-  });
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('open'); });
 </script>
 
 </body>
