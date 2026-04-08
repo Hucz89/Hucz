@@ -1,6 +1,9 @@
 {
 	"name": "hucz",
-        "pages_build_output_dir": "./dist",
+	"main": "dist/_worker.js",
+	"assets": {
+	    "directory": "./dist"
+	},
 	"compatibility_date": "2025-10-08",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
